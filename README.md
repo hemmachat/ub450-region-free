@@ -11,6 +11,8 @@ Tested on a DP-UB450GN (Australia) with firmware V127 - Sep 10, 2026. See "Does 
 
 ## What you need
 
+> Warning: you must be comfortable to run the command line on your machine e.g. using Windows prompt. If not, these steps might not be for you. So, please ask someone else to do it for you instead.
+
 **Update your player's firmware first** (Setup → System → Firmware Update). The region change might not survive a future update, so get that out of the way before you start.
 
 - **DP-UB450 or DP-UB150** (tested on UB450GN, Australia). May also work on UB154, UB159. See "Does this work on other models?" below
