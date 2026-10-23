@@ -114,22 +114,13 @@ if [ "$DVD_VAL_OFF" -ge "$FILE_SIZE" ] || [ "$BD_VAL_OFF" -ge "$FILE_SIZE" ]; th
     exit 1
 fi
 
-# --- Backup ---
-
-dd if="$CONF" bs=1 skip=$DVD_VAL_OFF count=1 of="$USB/.dvd_backup.bin" 2>/dev/null
-dd if="$CONF" bs=1 skip=$BD_VAL_OFF count=1 of="$USB/.bd_backup.bin" 2>/dev/null
-cp "$CONF" "$USB/.config_backup.txt" 2>/dev/null
-echo "$DVD_VAL_OFF" > "$USB/.dvd_offset.txt"
-echo "$BD_VAL_OFF" > "$USB/.bd_offset.txt"
-log "Backup saved to USB"
-
 # --- Read current values ---
 
 DVD_HEX=$(read_byte "$CONF" $DVD_VAL_OFF)
 BD_HEX=$(read_byte "$CONF" $BD_VAL_OFF)
 log "Before: DVD=0x$DVD_HEX, BD=0x$BD_HEX"
 
-# --- Restore mode ---
+# --- Restore mode (checked before backup so we don't overwrite the original) ---
 
 if [ -f "$USB/RESTORE" ]; then
     log "RESTORE flag found — restoring original region"
@@ -158,6 +149,19 @@ if [ -f "$USB/RESTORE" ]; then
     log "Finished: $(date)"
     log "Power off the player, remove the USB, and turn it back on."
     exit 0
+fi
+
+# --- Backup (skip if already region-free, so we don't overwrite the original) ---
+
+if [ "$DVD_HEX" = "00" ] && [ "$BD_HEX" = "07" ] && [ -f "$USB/.dvd_backup.bin" ]; then
+    log "Already region-free — keeping existing backup"
+else
+    dd if="$CONF" bs=1 skip=$DVD_VAL_OFF count=1 of="$USB/.dvd_backup.bin" 2>/dev/null
+    dd if="$CONF" bs=1 skip=$BD_VAL_OFF count=1 of="$USB/.bd_backup.bin" 2>/dev/null
+    cp "$CONF" "$USB/.config_backup.txt" 2>/dev/null
+    echo "$DVD_VAL_OFF" > "$USB/.dvd_offset.txt"
+    echo "$BD_VAL_OFF" > "$USB/.bd_offset.txt"
+    log "Backup saved to USB"
 fi
 
 # --- Write region-free values: DVD=0 (region-free), BD=7 (A+B+C) ---
