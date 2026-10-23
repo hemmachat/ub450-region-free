@@ -1,6 +1,6 @@
-# DP-UB450 / UB150 — Region-Free (No Jailbreak)
+# DP-UB450 / UB150 — Blu-ray Region-Free
 
-Play **Blu-rays from any region** on your DP-UB450, DP-UB150, or similar MediaTek-based player. No jailbreak firmware, no soldering, no permanent changes. Fully reversible.
+Play **Blu-rays from any region** on your DP-UB450, DP-UB150, or similar MediaTek-based player. No soldering, no permanent changes. Fully reversible.
 
 Tested on a DP-UB450GN (Australia) with firmware V127 - Sep 10, 2026. See "Does this work on other models?" below for UB150, UB154, UB159, UB820, and UB9000.
 
@@ -143,7 +143,7 @@ The script checks that the config file on your player matches the expected forma
 
 ### What about DVDs?
 
-This tool only unlocks **Blu-ray** regions. DVD region changes don't work with this method — the player stores the DVD region in a way that the config file alone can't change. For region-free DVD playback, you would need the jailbreak firmware (see the `Panasonic_UB450&150_jailbreak/` folder in the source repo).
+This tool only unlocks **Blu-ray** regions. DVD region changes don't work with this method — the player stores the DVD region in a way that the config file alone can't change.
 
 ## How it works
 
@@ -167,7 +167,7 @@ Region code values confirmed against the [Blu-ray specification (PSR 20)](https:
 
 ## Changelog
 
-**v4** — Removed DVD region support. Writing the DVD region to the config file doesn't actually change DVD playback — the player reads the DVD region from somewhere else. This tool now only unlocks Blu-ray (all regions A+B+C), which is confirmed working. For region-free DVD, use the jailbreak firmware instead.
+**v4** — Removed DVD region support. Writing the DVD region to the config file doesn't actually change DVD playback — the player reads the DVD region from somewhere else. This tool now only unlocks Blu-ray (all regions A+B+C), which is confirmed working.
 
 **v3.4** — Fixed DVD_REGION.txt parsing: comments on later lines were being picked up as the region number. Now only the first line is read.
 
