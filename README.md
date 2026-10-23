@@ -13,11 +13,11 @@ Tested on a DP-UB450GN (Australia) with firmware V127 - Sep 10, 2026. See "Does 
 
 **Update your player's firmware first** (Setup → System → Firmware Update). The region change might not survive a future update, so get that out of the way before you start.
 
-- **DP-UB450 or DP-UB150** (tested on UB450GN, Australia). May also work on UB420, UB820, UB9000 — see "Does this work on other models?" below
+- **DP-UB450 or DP-UB150** (tested on UB450GN, Australia). May also work on UB154, UB159. See "Does this work on other models?" below
 - **A USB drive** (any size, formatted as FAT32 — most USB drives already are)
 - **A computer** (Mac, Windows with WSL, or Linux)
 - **Any Blu-ray disc** (to trigger the process — the region doesn't matter, use one you already own)
-- **The firmware update file** (`PANA_DVD.FRM`) — download it from the manufacturer's support site for the UB450 or UB150. You need the file, not to install the update. (The UB820/UB9000 firmware is encrypted and can't be used directly — see "Does this work on other models?" below.)
+- **The firmware update file** (`PANA_DVD.FRM`) — download it from the manufacturer's support site for the UB450 or UB150. You need the file, not to install the update
 - **Python 3** (pre-installed on Mac and most Linux; [python.org](https://www.python.org/downloads/) for Windows)
 - **unsquashfs** — to extract a file from the firmware:
   - macOS: `brew install squashfs`
@@ -121,7 +121,7 @@ It was built and tested on a DP-UB450GN (Australia, firmware V127). The script f
 
 **UB150, UB154, UB159** — likely to work. Same firmware family (unencrypted `PANA_DVD.FRM`), same MediaTek MT8581 platform. Download your model's firmware update and run `build.py` with it.
 
-**UB420, UB820, UB9000** — likely to work. These models share the same firmware family (`PANAEUSB.FRM`, encrypted), so `build.py` can't extract the boot classes from it. However, a BDJ.jar built from the UB450 firmware should work, since the BD-Java runtime is the same across the platform. Use the UB450 or UB150 firmware file with `build.py`. The UB420 is the US model — it starts at Region A/1, but the tool sets region-free (all regions) regardless of the starting region. Untested — please report back if you try.
+**UB420, UB820, UB9000** — unknown. These models use encrypted firmware (`PANAEUSB.FRM`), so `build.py` cannot extract the boot classes from it. You would need to build BDJ.jar using a UB450 or UB150 firmware file instead, and it is unconfirmed whether the result works on these players. If you own one of these models and want to try, open an issue first so we can coordinate.
 
 If you try it on a different model, please report back by opening an issue.
 
