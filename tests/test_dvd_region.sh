@@ -190,7 +190,7 @@ for case_dir in "$D"/case_*; do
         DVD_REGION_FILE="$USB/DVD_REGION.txt"
     fi
     if [ -n "$DVD_REGION_FILE" ]; then
-        PARSED_TARGET=$(cat "$DVD_REGION_FILE" 2>/dev/null | tr -cd '0-9' | head -c 1)
+        PARSED_TARGET=$(head -1 "$DVD_REGION_FILE" 2>/dev/null | tr -cd '0-9' | head -c 1)
         if [ -n "$PARSED_TARGET" ] && [ "$PARSED_TARGET" -ge 1 ] && [ "$PARSED_TARGET" -le 6 ]; then
             : # valid
         else
