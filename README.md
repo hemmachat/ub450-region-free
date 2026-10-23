@@ -97,7 +97,7 @@ USB drive (root)
 8. **Remove the USB drive**
 9. **Power on** the player
 
-Your player is now region-free.
+Your Blu-ray region is now unlocked (all regions). If you added a `DVD_REGION` file, your DVD region is also changed. Check `region_log.txt` on the USB for details.
 
 ### 5. Check it worked
 
