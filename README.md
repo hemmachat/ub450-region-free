@@ -65,13 +65,15 @@ USB drive (root)
 
 ### 3. Run it
 
-1. **Turn on** the player (no disc yet)
-2. **Plug the USB drive** into the player's USB port
-3. **Insert any Blu-ray disc** and wait for it to load (about 30 seconds). The screen may go blank for a moment — that's normal
-4. Once the disc starts playing (or shows its menu), wait another **10 seconds**
-5. **Power off** the player with the remote
-6. **Remove the USB drive**
-7. **Power on** the player
+1. **Turn off** the player completely (not standby — press and hold power until it shuts down)
+2. **Plug the USB drive** into the player's **rear** USB port
+3. **Turn on** the player and wait for the home screen (no disc yet)
+4. **Insert a Blu-ray disc** — it must be a Blu-ray, not a DVD. Most commercial Blu-rays work. The disc triggers the BD-Java runtime, which loads the region-change script from the USB
+5. **(Very important) Wait for the screen to go blank for a moment** — this means the player is loading the script from USB. If the disc menu appears without a blank screen, the script didn't trigger — try a different disc. **You need the disc menu to load to run the script. If the disc menu did not load, you need to open it manually e.g. press "Top Menu" button on the remote.**
+6. **Wait for the disc menu to fully load**, then wait another **10 seconds**. The region change happens in the background while the disc loads. 
+7. **Power off** the player with the remote
+8. **Remove the USB drive**
+9. **Power on** the player
 
 Your player is now region-free.
 
@@ -156,6 +158,12 @@ No proprietary code is included in this repository. The build script operates on
 ## Credits
 
 Region code values confirmed against the [Blu-ray specification (PSR 20)](https://videolan.videolan.me/libbluray/player__settings_8h.html) via libbluray and the [DVD region code standard](https://en.wikipedia.org/wiki/DVD_region_code). The BD-Java debug mode is a standard feature of the CVM runtime used in MediaTek-based Blu-ray players.
+
+## Changelog
+
+**v3** — Fixed `run.sh` failing on UB450 and UB150 when the player's busybox `od` doesn't support `-v -An -tx1` (produces no output, so both keys show "not found"). The primary offset detection now uses `strings -t d`, which is confirmed working on the player's busybox. Falls back to `od` hex search (macOS/GNU), then a `dd` byte-scan as last resort. `read_byte` also has multiple fallbacks (`od` → `hexdump` → `printf`). Tested on a real UB450GN config dump: `strings -t d` returns the correct byte offsets for both region keys.
+
+**v2** — Fixed `run.sh` failing on both UB450 and UB150 with `unexpected key order (BD before DVD)`. The player's busybox `grep -b` reports the byte offset of the line start (always 0 for a binary file), not the match position, so both keys appeared at offset 0. Replaced `grep -boa` with an `od`-based hex search that works on any busybox. Also removed the assumption that the BD key comes after the DVD key in the config file, and added a config file dump to USB (`.config_dump.bin`) for easier debugging on untested models.
 
 ## License
 
