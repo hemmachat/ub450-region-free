@@ -81,7 +81,7 @@ The USB drive should look like this:
 USB drive (root)
 ├── BDJ_DEBUG
 ├── BDJ.jar
-├── DVD_REGION    ← optional, contains a number 1-6
+├── DVD_REGION.txt    ← optional, contains a number 1-6
 └── run.sh
 ```
 
