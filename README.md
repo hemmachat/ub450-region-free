@@ -28,9 +28,13 @@ Tested on a DP-UB450GN (Australia) with firmware V127 - Sep 10, 2026. See "Does 
 
 ## Steps
 
-### 1. Build BDJ.jar
+### 1. Download
 
-Open a terminal, go to this repo's `build/` folder, and run:
+Download the latest release zip from the [Releases page](https://github.com/hemmachat/ub450-region-free/releases) and unzip it.
+
+### 2. Build BDJ.jar
+
+Open a terminal (command prompt on Windows), go to the `build/` folder inside the unzipped folder from step 1, and run:
 
 ```sh
 python3 build.py /path/to/PANA_DVD.FRM
@@ -46,14 +50,14 @@ The script will:
 
 You should see output ending with `Done.` and a SHA-256 hash.
 
-### 2. Prepare the USB drive
+### 3. Prepare the USB drive
 
 Format your USB drive as **FAT32** (most USB drives already are).
 
-Copy these three files from the `usb-files/` folder to the **root** of the USB drive:
+Copy these three files from the `usb-files/` folder (inside the folder you unzipped in step 1) to the **root** of the USB drive:
 
 - `BDJ_DEBUG` (an empty file — don't open or edit it)
-- `BDJ.jar` (about 1.2 MB — the file you just built)
+- `BDJ.jar` (about 1.2 MB — the file you built in step 2)
 - `run.sh` (a small text file)
 
 The USB drive should look like this:
@@ -65,10 +69,10 @@ USB drive (root)
 └── run.sh
 ```
 
-### 3. Run it
+### 4. Run it
 
 1. **Turn off** the player completely (not standby — press and hold power until it shuts down)
-2. **Plug the USB drive** into the player's **rear** USB port
+2. **Plug the USB drive** into the player's USB port (front or rear — use whichever your model has)
 3. **Turn on** the player and wait for the home screen (no disc yet)
 4. **Insert a Blu-ray disc** — it must be a Blu-ray, not a DVD. Most commercial Blu-rays work. The disc triggers the BD-Java runtime, which loads the region-change script from the USB
 5. **(Very important) Wait for the screen to go blank for a moment** — this means the player is loading the script from USB. If the disc menu appears without a blank screen, the script didn't trigger — try a different disc. **You need the disc menu to load to run the script. If the disc menu did not load, you need to open it manually e.g. press "Top Menu" button on the remote.**
@@ -79,16 +83,16 @@ USB drive (root)
 
 Your player is now region-free.
 
-### 4. Check it worked
+### 5. Check it worked
 
-Plug the USB drive into your computer. You should see a new file:
+Plug the USB drive back into your computer. You should see a new file on the USB:
 
 - **`REGION_FREE_OK.txt`** — it worked. You can now play discs from any region.
 - **`REGION_FREE_FAILED.txt`** — something went wrong. Check `region_log.txt` on the USB for details.
 
 The file `region_log.txt` has a full log of what happened, including your original region values (backed up automatically).
 
-### 5. Test
+### 6. Test
 
 Insert a disc from a different region. It should play without any region error.
 
@@ -97,15 +101,15 @@ Insert a disc from a different region. It should play without any region error.
 If you ever want to go back to your original region:
 
 1. Create an empty file called **`RESTORE`** on the USB drive (next to the other files)
-2. Repeat step 3 above (plug USB, insert disc, wait, power off, remove USB, power on)
+2. Repeat step 4 above (plug USB, insert disc, wait, power off, remove USB, power on)
 
-The player will restore your original region from the backup that was saved during step 3.
+The player will restore your original region from the backup that was saved during step 4.
 
 ## FAQ
 
 ### Which USB port should I use?
 
-Use the **rear** USB port. If that doesn't work, try the front one.
+Use whichever USB port your player has. The UB450 has one on the front; other models may have front and rear ports. Either works.
 
 ### The screen goes blank and stays blank
 
