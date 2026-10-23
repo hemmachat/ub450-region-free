@@ -20,8 +20,14 @@ log "Started: $(date)"
 #   1 = US/Canada  2 = Europe/Japan  3 = SE Asia  4 = Australia/Latin America
 #   5 = Russia/India/Africa  6 = China
 DVD_TARGET=""
+DVD_REGION_FILE=""
 if [ -f "$USB/DVD_REGION" ]; then
-    DVD_TARGET=$(cat "$USB/DVD_REGION" 2>/dev/null | tr -cd '0-9' | head -c 1)
+    DVD_REGION_FILE="$USB/DVD_REGION"
+elif [ -f "$USB/DVD_REGION.txt" ]; then
+    DVD_REGION_FILE="$USB/DVD_REGION.txt"
+fi
+if [ -n "$DVD_REGION_FILE" ]; then
+    DVD_TARGET=$(cat "$DVD_REGION_FILE" 2>/dev/null | tr -cd '0-9' | head -c 1)
     if [ -n "$DVD_TARGET" ] && [ "$DVD_TARGET" -ge 1 ] && [ "$DVD_TARGET" -le 6 ]; then
         log "DVD_REGION file: setting DVD to region $DVD_TARGET"
     else

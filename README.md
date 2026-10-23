@@ -60,7 +60,7 @@ Copy these three files from the `usb-files/` folder (inside the folder you unzip
 - `BDJ.jar` (about 1.2 MB — the file you built in step 2)
 - `run.sh` (a small text file)
 
-**To play DVDs from a different region**, create a text file called **`DVD_REGION`** on the USB containing just the region number:
+**To play DVDs from a different region**, copy `DVD_REGION.txt` from the `usb-files/` folder to the USB, edit the number at the top to your desired region, and rename it to **`DVD_REGION`** (or leave the `.txt` — both work):
 
 | Number | Region |
 |--------|--------|
