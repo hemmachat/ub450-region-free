@@ -11,6 +11,8 @@ Tested on a DP-UB450GN (Australia) with firmware V127 - Sep 10, 2026. See "Does 
 
 ## What you need
 
+**Update your player's firmware first** (Setup → System → Firmware Update). The region change might not survive a future update, so get that out of the way before you start.
+
 - **DP-UB450 or DP-UB150** (tested on UB450GN, Australia). May also work on UB420, UB820, UB9000 — see "Does this work on other models?" below
 - **A USB drive** (any size, formatted as FAT32 — most USB drives already are)
 - **A computer** (Mac, Windows with WSL, or Linux)
