@@ -219,11 +219,12 @@ fi
 
 if $BD_OK && $DVD_OK; then
     if [ -n "$DVD_TARGET" ]; then
-        log "SUCCESS — Blu-ray: all regions, DVD: region $DVD_TARGET"
+        RESULT="Blu-ray: all regions. DVD: region $DVD_TARGET."
     else
-        log "SUCCESS — Blu-ray: all regions, DVD: unchanged (region 0x$DVD_AFTER)"
+        RESULT="Blu-ray: all regions. DVD: unchanged."
     fi
-    echo "REGION FREE OK" > "$USB/REGION_FREE_OK.txt"
+    log "SUCCESS — $RESULT"
+    echo "$RESULT" > "$USB/REGION_FREE_OK.txt"
     rm -f "$USB/REGION_FREE_FAILED.txt" 2>/dev/null
 else
     log "ERROR — values not written correctly"
