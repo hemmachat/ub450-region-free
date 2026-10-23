@@ -1,6 +1,6 @@
 # DP-UB450 / UB150 — Region-Free (No Jailbreak)
 
-Play Blu-rays and DVDs from **any region** on your DP-UB450, DP-UB150, or similar MediaTek-based player. No jailbreak firmware, no soldering, no permanent changes. Fully reversible.
+Play **Blu-rays from any region** on your DP-UB450, DP-UB150, or similar MediaTek-based player. No jailbreak firmware, no soldering, no permanent changes. Fully reversible.
 
 Tested on a DP-UB450GN (Australia) with firmware V127 - Sep 10, 2026. See "Does this work on other models?" below for UB150, UB154, UB159, UB820, and UB9000.
 
@@ -60,28 +60,12 @@ Copy these three files from the `usb-files/` folder (inside the folder you unzip
 - `BDJ.jar` (about 1.2 MB — the file you built in step 2)
 - `run.sh` (a small text file)
 
-**To play DVDs from a different region**, copy `DVD_REGION.txt` from the `usb-files/` folder to the USB, edit the number at the top to your desired region, and rename it to **`DVD_REGION`** (or leave the `.txt` — both work):
-
-| Number | Region |
-|--------|--------|
-| 1 | US, Canada |
-| 2 | Europe, Japan |
-| 3 | SE Asia, Korea |
-| 4 | Australia, Latin America |
-| 5 | Russia, India, Africa |
-| 6 | China |
-
-For example, to play US DVDs: create a file called `DVD_REGION` containing just `1`.
-
-> **Why a separate file?** Blu-ray supports all regions at once (A+B+C), but DVD only supports one region at a time. If you don't create this file, the script leaves your DVD region unchanged and only unlocks Blu-ray.
-
 The USB drive should look like this:
 
 ```
 USB drive (root)
 ├── BDJ_DEBUG
 ├── BDJ.jar
-├── DVD_REGION.txt    ← optional, contains a number 1-6
 └── run.sh
 ```
 
@@ -97,20 +81,20 @@ USB drive (root)
 8. **Remove the USB drive**
 9. **Power on** the player
 
-Your Blu-ray region is now unlocked (all regions). If you added a `DVD_REGION` file, your DVD region is also changed. Check `region_log.txt` on the USB for details.
+Your Blu-ray region is now unlocked (all regions). Check `region_log.txt` on the USB for details.
 
 ### 5. Check it worked
 
 Plug the USB drive back into your computer. You should see a new file on the USB:
 
-- **`REGION_FREE_OK.txt`** — it worked. You can now play discs from any region.
+- **`REGION_FREE_OK.txt`** — it worked. You can now play Blu-rays from any region.
 - **`REGION_FREE_FAILED.txt`** — something went wrong. Check `region_log.txt` on the USB for details.
 
 The file `region_log.txt` has a full log of what happened, including your original region values (backed up automatically).
 
 ### 6. Test
 
-Insert a disc from a different region. It should play without any region error.
+Insert a Blu-ray from a different region. It should play without any region error.
 
 ## How to undo it
 
@@ -151,21 +135,19 @@ If you try it on a different model, please report back by opening an issue.
 
 ### Is this safe? Can it brick my player?
 
-The process changes two bytes in a configuration file on the player's internal storage. It does not modify the firmware. The original values are backed up to the USB drive, and you can restore them at any time. In the worst case, a factory reset (Setup → System → Default Settings) should restore the original region.
+The process changes one byte in a configuration file on the player's internal storage. It does not modify the firmware. The original values are backed up to the USB drive, and you can restore them at any time. In the worst case, a factory reset (Setup → System → Default Settings) should restore the original region.
 
 ### The build script says "wrong firmware layout"
 
 The script checks that the config file on your player matches the expected format before writing anything. If your player has a different firmware version with a different layout, it will stop safely. Open an issue with your model and firmware version.
 
-### DVDs from another region don't play
+### What about DVDs?
 
-DVD only supports one region at a time (unlike Blu-ray, which supports all regions at once). Create a `DVD_REGION` file on the USB containing the region number you want (see step 3), then run the process again. For example, put `1` in the file to play US DVDs.
-
-A few early 2000s DVDs with "RCE" (Regional Coding Enhancement) may refuse to play even with the correct region set. This is rare and caused by the disc, not the player.
+This tool only unlocks **Blu-ray** regions. DVD region changes don't work with this method — the player stores the DVD region in a way that the config file alone can't change. For region-free DVD playback, you would need the jailbreak firmware (see the `Panasonic_UB450&150_jailbreak/` folder in the source repo).
 
 ## How it works
 
-The player has a BD-Java debug mode that loads boot classes from a USB drive. The build script extracts the boot classes from your firmware file, makes a small change to allow running a shell script, and packages the result as `BDJ.jar`. When you insert a disc with the USB plugged in, the script runs and changes two bytes in the player's region configuration file. The original values are backed up to the USB first. No firmware is modified — only a config file on the player's internal storage. No network connection is needed.
+The player has a BD-Java debug mode that loads boot classes from a USB drive. The build script extracts the boot classes from your firmware file, makes a small change to allow running a shell script, and packages the result as `BDJ.jar`. When you insert a disc with the USB plugged in, the script runs and changes the Blu-ray region byte in the player's configuration file to allow all regions (A+B+C). The original values are backed up to the USB first. No firmware is modified — only a config file on the player's internal storage. No network connection is needed.
 
 ## Building from source
 
@@ -184,6 +166,12 @@ No proprietary code is included in this repository. The build script operates on
 Region code values confirmed against the [Blu-ray specification (PSR 20)](https://videolan.videolan.me/libbluray/player__settings_8h.html) via libbluray and the [DVD region code standard](https://en.wikipedia.org/wiki/DVD_region_code). The BD-Java debug mode is a standard feature of the CVM runtime used in MediaTek-based Blu-ray players.
 
 ## Changelog
+
+**v4** — Removed DVD region support. Writing the DVD region to the config file doesn't actually change DVD playback — the player reads the DVD region from somewhere else. This tool now only unlocks Blu-ray (all regions A+B+C), which is confirmed working. For region-free DVD, use the jailbreak firmware instead.
+
+**v3.4** — Fixed DVD_REGION.txt parsing: comments on later lines were being picked up as the region number. Now only the first line is read.
+
+**v3.3** — Added DVD_REGION.txt template with region table and instructions. Both `DVD_REGION` and `DVD_REGION.txt` filenames work.
 
 **v3.2** — DVD region 0 ("region-free") doesn't work on these players — US DVDs and others were rejected. DVD now requires a `DVD_REGION` file on the USB with the region number (1-6) you want. If no file is present, the DVD region is left unchanged and only Blu-ray is unlocked. Blu-ray still gets all regions (A+B+C) as before.
 

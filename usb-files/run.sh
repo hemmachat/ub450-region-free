@@ -1,7 +1,7 @@
 #!/bin/sh
-# DP-UB450/UB150 Region-Free Script v3.2
+# DP-UB450/UB150 Region-Free Script v4
 # Runs automatically when a Blu-ray disc is loaded with BDJ_DEBUG on the USB.
-# Sets Blu-ray to all regions (A+B+C) and DVD to a chosen region.
+# Sets Blu-ray to all regions (A+B+C).
 # Finds region settings dynamically — adapts to different firmware versions.
 
 CONF=/acfg/config_file_global.txt
@@ -10,33 +10,8 @@ LOG=$USB/region_log.txt
 
 log() { echo "$1" >> "$LOG"; }
 
-echo "=== UB450 Region-Free v3.2 ===" > "$LOG"
+echo "=== UB450 Region-Free v4 ===" > "$LOG"
 log "Started: $(date)"
-
-# --- Read DVD region from config file on USB (default: keep current) ---
-# DVD only supports one region at a time (1-6), unlike Blu-ray which has a bitmask.
-# Create a file called DVD_REGION on the USB containing just the number (1-6).
-# If no file, the DVD region is left unchanged.
-#   1 = US/Canada  2 = Europe/Japan  3 = SE Asia  4 = Australia/Latin America
-#   5 = Russia/India/Africa  6 = China
-DVD_TARGET=""
-DVD_REGION_FILE=""
-if [ -f "$USB/DVD_REGION" ]; then
-    DVD_REGION_FILE="$USB/DVD_REGION"
-elif [ -f "$USB/DVD_REGION.txt" ]; then
-    DVD_REGION_FILE="$USB/DVD_REGION.txt"
-fi
-if [ -n "$DVD_REGION_FILE" ]; then
-    DVD_TARGET=$(head -1 "$DVD_REGION_FILE" 2>/dev/null | tr -cd '0-9' | head -c 1)
-    if [ -n "$DVD_TARGET" ] && [ "$DVD_TARGET" -ge 1 ] && [ "$DVD_TARGET" -le 6 ]; then
-        log "DVD_REGION file: setting DVD to region $DVD_TARGET"
-    else
-        log "WARNING: DVD_REGION file contains invalid value '$DVD_TARGET' (must be 1-6), leaving DVD unchanged"
-        DVD_TARGET=""
-    fi
-else
-    log "No DVD_REGION file — DVD region will not be changed"
-fi
 
 if [ ! -f "$CONF" ]; then
     log "ERROR: $CONF not found"
@@ -178,12 +153,7 @@ fi
 
 # --- Backup (skip if nothing will change, so we don't overwrite the original) ---
 
-DVD_TARGET_HEX=""
-if [ -n "$DVD_TARGET" ]; then
-    DVD_TARGET_HEX=$(printf '%02x' "$DVD_TARGET")
-fi
-
-if [ "$BD_HEX" = "07" ] && { [ -z "$DVD_TARGET" ] || [ "$DVD_HEX" = "$DVD_TARGET_HEX" ]; } && [ -f "$USB/.dvd_backup.bin" ]; then
+if [ "$BD_HEX" = "07" ] && [ -f "$USB/.dvd_backup.bin" ]; then
     log "Nothing to change — keeping existing backup"
 else
     dd if="$CONF" bs=1 skip=$DVD_VAL_OFF count=1 of="$USB/.dvd_backup.bin" 2>/dev/null
@@ -194,35 +164,19 @@ else
     log "Backup saved to USB"
 fi
 
-# --- Write: BD=7 (all regions), DVD=chosen region or unchanged ---
+# --- Write: BD=7 (all regions) ---
 
-if [ -n "$DVD_TARGET" ]; then
-    printf "\\x0${DVD_TARGET}" | dd of="$CONF" bs=1 seek=$DVD_VAL_OFF conv=notrunc 2>/dev/null
-fi
 printf '\x07' | dd of="$CONF" bs=1 seek=$BD_VAL_OFF conv=notrunc 2>/dev/null
 sync
 
 # --- Verify ---
 
-DVD_AFTER=$(read_byte "$CONF" $DVD_VAL_OFF)
 BD_AFTER=$(read_byte "$CONF" $BD_VAL_OFF)
+DVD_AFTER=$(read_byte "$CONF" $DVD_VAL_OFF)
 log "After: DVD=0x$DVD_AFTER, BD=0x$BD_AFTER"
 
-BD_OK=false
-DVD_OK=false
-[ "$BD_AFTER" = "07" ] && BD_OK=true
-if [ -n "$DVD_TARGET_HEX" ]; then
-    [ "$DVD_AFTER" = "$DVD_TARGET_HEX" ] && DVD_OK=true
-else
-    DVD_OK=true
-fi
-
-if $BD_OK && $DVD_OK; then
-    if [ -n "$DVD_TARGET" ]; then
-        RESULT="Blu-ray: all regions. DVD: region $DVD_TARGET."
-    else
-        RESULT="Blu-ray: all regions. DVD: unchanged."
-    fi
+if [ "$BD_AFTER" = "07" ]; then
+    RESULT="Blu-ray: all regions."
     log "SUCCESS — $RESULT"
     echo "$RESULT" > "$USB/REGION_FREE_OK.txt"
     rm -f "$USB/REGION_FREE_FAILED.txt" 2>/dev/null
