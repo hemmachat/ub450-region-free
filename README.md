@@ -60,12 +60,28 @@ Copy these three files from the `usb-files/` folder (inside the folder you unzip
 - `BDJ.jar` (about 1.2 MB — the file you built in step 2)
 - `run.sh` (a small text file)
 
+**To play DVDs from a different region**, create a text file called **`DVD_REGION`** on the USB containing just the region number:
+
+| Number | Region |
+|--------|--------|
+| 1 | US, Canada |
+| 2 | Europe, Japan |
+| 3 | SE Asia, Korea |
+| 4 | Australia, Latin America |
+| 5 | Russia, India, Africa |
+| 6 | China |
+
+For example, to play US DVDs: create a file called `DVD_REGION` containing just `1`.
+
+> **Why a separate file?** Blu-ray supports all regions at once (A+B+C), but DVD only supports one region at a time. If you don't create this file, the script leaves your DVD region unchanged and only unlocks Blu-ray.
+
 The USB drive should look like this:
 
 ```
 USB drive (root)
 ├── BDJ_DEBUG
 ├── BDJ.jar
+├── DVD_REGION    ← optional, contains a number 1-6
 └── run.sh
 ```
 
@@ -141,9 +157,11 @@ The process changes two bytes in a configuration file on the player's internal s
 
 The script checks that the config file on your player matches the expected format before writing anything. If your player has a different firmware version with a different layout, it will stop safely. Open an issue with your model and firmware version.
 
-### A few old DVDs don't play
+### DVDs from another region don't play
 
-Some early 2000s DVDs with "RCE" (Regional Coding Enhancement) refuse to play on region-free players. This is rare. If it happens, it's the disc, not the player.
+DVD only supports one region at a time (unlike Blu-ray, which supports all regions at once). Create a `DVD_REGION` file on the USB containing the region number you want (see step 3), then run the process again. For example, put `1` in the file to play US DVDs.
+
+A few early 2000s DVDs with "RCE" (Regional Coding Enhancement) may refuse to play even with the correct region set. This is rare and caused by the disc, not the player.
 
 ## How it works
 
@@ -166,6 +184,8 @@ No proprietary code is included in this repository. The build script operates on
 Region code values confirmed against the [Blu-ray specification (PSR 20)](https://videolan.videolan.me/libbluray/player__settings_8h.html) via libbluray and the [DVD region code standard](https://en.wikipedia.org/wiki/DVD_region_code). The BD-Java debug mode is a standard feature of the CVM runtime used in MediaTek-based Blu-ray players.
 
 ## Changelog
+
+**v3.2** — DVD region 0 ("region-free") doesn't work on these players — US DVDs and others were rejected. DVD now requires a `DVD_REGION` file on the USB with the region number (1-6) you want. If no file is present, the DVD region is left unchanged and only Blu-ray is unlocked. Blu-ray still gets all regions (A+B+C) as before.
 
 **v3.1** — Fixed a bug where the backup was overwritten before checking for RESTORE, so restoring would lose your original region values. Now the restore runs first, and re-running the script won't overwrite an existing backup if the player is already region-free.
 
