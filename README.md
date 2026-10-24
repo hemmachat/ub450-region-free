@@ -1,6 +1,6 @@
 # DP-UB450 / UB150 — Blu-ray Region-Free
 
-Play **Blu-rays from any region** on your DP-UB450, DP-UB150, or similar MediaTek-based player. No soldering, no permanent changes. Fully reversible.
+Play **Blu-rays and DVDs from any region** on your DP-UB450, DP-UB150, or similar MediaTek-based player. No soldering, no permanent changes. Fully reversible.
 
 Tested on a DP-UB450GN (Australia) with firmware V127 - Sep 10, 2026. See "Does this work on other models?" below for UB150, UB154, UB159, UB820, and UB9000.
 
@@ -54,11 +54,12 @@ You should see output ending with `Done.` and a SHA-256 hash.
 
 Format your USB drive as **FAT32** (most USB drives already are).
 
-Copy these three files from the `usb-files/` folder (inside the folder you unzipped in step 1) to the **root** of the USB drive:
+Copy these files from the `usb-files/` folder (inside the folder you unzipped in step 1) to the **root** of the USB drive:
 
 - `BDJ_DEBUG` (an empty file — don't open or edit it)
 - `BDJ.jar` (about 1.2 MB — the file you built in step 2)
-- `run.sh` (a small text file)
+- `run.sh` (the region-change script)
+- `diag.sh` (optional — diagnostics, only needed if something goes wrong)
 
 The USB drive should look like this:
 
@@ -66,7 +67,8 @@ The USB drive should look like this:
 USB drive (root)
 ├── BDJ_DEBUG
 ├── BDJ.jar
-└── run.sh
+├── run.sh
+└── diag.sh  (optional)
 ```
 
 ### 4. Run it
@@ -81,14 +83,16 @@ USB drive (root)
 8. **Remove the USB drive**
 9. **Power on** the player
 
-Your Blu-ray region is now unlocked (all regions). Check `region_log.txt` on the USB for details.
+Your Blu-ray region is now unlocked (all regions), and DVD is set to US (region 1) by default. Check `region_log.txt` on the USB for details.
+
+**To change the DVD region**, create a file called `dvd_region.txt` on the USB drive containing just the region number: 0 (region-free), 1 (US), 2 (Europe/Japan), 3 (SE Asia), 4 (Australia), 5 (Russia/India), or 6 (China). If no file is present, DVD defaults to region 1 (US).
 
 ### 5. Check it worked
 
 Plug the USB drive back into your computer. You should see a new file on the USB:
 
-- **`REGION_FREE_OK.txt`** — it worked. You can now play Blu-rays from any region.
-- **`REGION_FREE_FAILED.txt`** — something went wrong. Check `region_log.txt` on the USB for details.
+- **`REGION_FREE_OK.txt`** — it worked. The file tells you which methods were used (web CLI, EEPROM, or config file).
+- **`REGION_FREE_FAILED.txt`** — something went wrong. Check `region_log.txt` on the USB for details. You can also copy `diag.sh` to the USB and run the process again to collect diagnostic data (saved to `diag_output/` on the USB) — attach it to an issue if you need help.
 
 The file `region_log.txt` has a full log of what happened, including your original region values (backed up automatically).
 
@@ -135,7 +139,7 @@ If you try it on a different model, please report back by opening an issue.
 
 ### Is this safe? Can it brick my player?
 
-The process changes one byte in a configuration file on the player's internal storage. It does not modify the firmware. The original values are backed up to the USB drive, and you can restore them at any time. In the worst case, a factory reset (Setup → System → Default Settings) should restore the original region.
+The process changes region bytes in the player's configuration file and EEPROM. It does not modify the firmware. The original values are backed up to the USB drive, and you can restore them at any time (see "How to undo it"). In the worst case, a factory reset (Setup → System → Default Settings) should restore the original region.
 
 ### The build script says "wrong firmware layout"
 
@@ -143,11 +147,19 @@ The script checks that the config file on your player matches the expected forma
 
 ### What about DVDs?
 
-This tool only unlocks **Blu-ray** regions. DVD region changes don't work with this method — the player stores the DVD region in a way that the config file alone can't change.
+DVD regions are now supported as of v6. The player stores the DVD region in EEPROM as well as the config file, so the script writes to both. By default it sets DVD to region 1 (US). To choose a different region, put a `dvd_region.txt` file on the USB with the region number (0–6).
+
+If the DVD region didn't change after running the script, your player's EEPROM device might be different. Run `diag.sh` (copy it to the USB and repeat step 4) and open an issue with the `diag_output/` folder — this will help identify the right device.
 
 ## How it works
 
-The player has a BD-Java debug mode that loads boot classes from a USB drive. The build script extracts the boot classes from your firmware file, makes a small change to allow running a shell script, and packages the result as `BDJ.jar`. When you insert a disc with the USB plugged in, the script runs and changes the Blu-ray region byte in the player's configuration file to allow all regions (A+B+C). The original values are backed up to the USB first. No firmware is modified — only a config file on the player's internal storage. No network connection is needed.
+The player has a BD-Java debug mode that loads boot classes from a USB drive. The build script extracts the boot classes from your firmware file, makes a small change to allow running a shell script, and packages the result as `BDJ.jar`. When you insert a disc with the USB plugged in, the script runs and tries three methods in order:
+
+1. **Web CLI** — the player's internal command interface (`app.acfg.rg`), if reachable
+2. **EEPROM direct write** — writes the DVD region to the hardware EEPROM at offset 0x200, where the firmware reads it at every boot
+3. **Config file write** — writes both DVD and BD regions to the config file (always works for Blu-ray; DVD also needs the EEPROM write to survive a reboot)
+
+The Blu-ray region is set to all regions (A+B+C). The DVD region defaults to 1 (US) unless overridden by a `dvd_region.txt` file on the USB. The original values are backed up to the USB first. No firmware is modified. No network connection is needed.
 
 ## Building from source
 
@@ -166,6 +178,8 @@ No proprietary code is included in this repository. The build script operates on
 Region code values confirmed against the [Blu-ray specification (PSR 20)](https://videolan.videolan.me/libbluray/player__settings_8h.html) via libbluray and the [DVD region code standard](https://en.wikipedia.org/wiki/DVD_region_code). The BD-Java debug mode is a standard feature of the CVM runtime used in MediaTek-based Blu-ray players.
 
 ## Changelog
+
+**v6** — DVD region support is back. Ghidra reverse engineering of the player's firmware (`bdpprog`) revealed why v3's config-file-only approach failed: the firmware reads the DVD region from EEPROM (device 0x15, offset 0x200) at every boot, overwriting the config file value. Blu-ray has no EEPROM copy, which is why it always worked. The script now writes the DVD region directly to EEPROM via `/dev/eeprom_*`, and also tries the player's internal web CLI (`app.acfg.rg`) first. Added `diag.sh` for collecting EEPROM and config diagnostics on untested models.
 
 **v4** — Removed DVD region support. Writing the DVD region to the config file doesn't actually change DVD playback — the player reads the DVD region from somewhere else. This tool now only unlocks Blu-ray (all regions A+B+C), which is confirmed working.
 
