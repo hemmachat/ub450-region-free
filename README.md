@@ -155,7 +155,7 @@ The script checks that the config file on your player matches the expected forma
 
 ### What about DVDs?
 
-DVD regions are now supported as of v6. The player stores the DVD region in EEPROM as well as the config file, so the script writes to both. By default it sets DVD to region 1 (US). To choose a different region, put a `dvd_region.txt` file on the USB with the region number (0–6).
+DVD regions are now supported as of v5. The player stores the DVD region in EEPROM as well as the config file, so the script writes to both. By default it sets DVD to region 1 (US). To choose a different region, put a `dvd_region.txt` file on the USB with the region number (0–6).
 
 If the DVD region didn't change after running the script, your player's EEPROM device might be different. Run `diag.sh` (copy it to the USB and repeat step 4) and open an issue with the `diag_output/` folder — this will help identify the right device.
 
@@ -187,7 +187,7 @@ Region code values confirmed against the [Blu-ray specification (PSR 20)](https:
 
 ## Changelog
 
-**v6** — DVD region support is back. Ghidra reverse engineering of the player's firmware (`bdpprog`) revealed why v3's config-file-only approach failed: the firmware reads the DVD region from EEPROM (device 0x15, offset 0x200) at every boot, overwriting the config file value. Blu-ray has no EEPROM copy, which is why it always worked. The script now writes the DVD region directly to EEPROM via `/dev/eeprom_*`, and also tries the player's internal web CLI (`app.acfg.rg`) first. Added `diag.sh` for collecting EEPROM and config diagnostics on untested models.
+**v5** — DVD region support is back. Ghidra reverse engineering of the player's firmware (`bdpprog`) revealed why v3's config-file-only approach failed: the firmware reads the DVD region from EEPROM (device 0x15, offset 0x200) at every boot, overwriting the config file value. Blu-ray has no EEPROM copy, which is why it always worked. The script now writes the DVD region directly to EEPROM via `/dev/eeprom_*`, and also tries the player's internal web CLI (`app.acfg.rg`) first. Added `diag.sh` for collecting EEPROM and config diagnostics on untested models.
 
 **v4** — Removed DVD region support. Writing the DVD region to the config file doesn't actually change DVD playback — the player reads the DVD region from somewhere else. This tool now only unlocks Blu-ray (all regions A+B+C), which is confirmed working.
 

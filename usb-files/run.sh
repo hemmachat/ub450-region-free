@@ -1,5 +1,5 @@
 #!/bin/sh
-# DP-UB450/UB150 Region-Free Script v6
+# DP-UB450/UB150 Region-Free Script v5
 # Runs automatically when a Blu-ray disc is loaded with BDJ_DEBUG on the USB.
 # Sets Blu-ray to all regions (A+B+C) and optionally DVD to a chosen region.
 #
@@ -25,7 +25,7 @@ fi
 
 log() { echo "$1" >> "$LOG"; }
 
-echo "=== UB450 Region-Free v6 ===" > "$LOG"
+echo "=== UB450 Region-Free v5 ===" > "$LOG"
 log "Started: $(date)"
 log "Target: DVD=$DVD_TARGET, BD=$BD_TARGET"
 
