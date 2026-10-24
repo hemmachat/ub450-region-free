@@ -84,12 +84,13 @@ USB drive (root)
 1. **Turn off** the player completely (not standby — press and hold power until it shuts down)
 2. **Plug the USB drive** into the player's USB port (front or rear — use whichever your model has)
 3. **Turn on** the player and wait for the home screen (no disc yet)
-4. **Insert a Blu-ray disc** — it must be a Blu-ray, not a DVD. Most commercial Blu-rays work. The disc triggers the BD-Java runtime, which loads the region-change script from the USB
-5. **(Very important) Wait for the screen to go blank for a moment** — this means the player is loading the script from USB. If the disc menu appears without a blank screen, the script didn't trigger — try a different disc. **You need the disc menu to load to run the script. If the disc menu did not load, you need to open it manually e.g. press "Top Menu" button on the remote.**
+4. **Insert YOUR REGION Blu-ray disc** — it must be a Blu-ray, not a DVD. Most commercial Blu-rays work. The disc triggers the BD-Java runtime, which loads the region-change script from the USB
+5. **(Very important) Wait for the screen to go blank for a moment** — this means the player is loading the script from USB. If the disc menu appears without a blank screen, the script didn't trigger — try a different disc. 
+**(Critical) You need the disc's menu to load to run the script, not the player's menu. The disc menu is the menu that you can play the movie, set the audio/subtitle, watch extras, etc. If the disc menu did not load, you need to open it manually e.g. press "Top Menu" button on the remote.**
 6. **Wait for the disc menu to fully load**, then wait another **10 seconds**. The region change happens in the background while the disc loads. 
 7. **Power off** the player with the remote
 8. **Remove the USB drive**
-9. **Power on** the player
+9.  **Power on** the player
 
 Your Blu-ray region is now unlocked (all regions), and DVD is set to US (region 1) by default. Check `region_log.txt` on the USB for details.
 
