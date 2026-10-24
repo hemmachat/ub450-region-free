@@ -413,3 +413,9 @@ elif [ "$EEPROM_OK" = "1" ]; then
 else
     log "Power off the player, remove the USB, and turn it back on."
 fi
+
+# Run diagnostics automatically if EEPROM write failed and diag.sh is on the USB
+if [ "$EEPROM_OK" = "0" ] && [ "$CLI_OK" = "0" ] && [ -f "$USB/diag.sh" ]; then
+    log "EEPROM write failed — running diag.sh automatically"
+    sh "$USB/diag.sh"
+fi
