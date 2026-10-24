@@ -1,5 +1,5 @@
 #!/bin/sh
-# DP-UB450/UB150 Region-Free Script v5.3
+# DP-UB450/UB150 Region-Free Script v5.4
 # Runs automatically when a Blu-ray disc is loaded with BDJ_DEBUG on the USB.
 # Sets Blu-ray to all regions (A+B+C) and optionally DVD to a chosen region.
 #
@@ -26,7 +26,7 @@ fi
 
 log() { echo "$1" >> "$LOG"; }
 
-echo "=== UB450 Region-Free v5.3 ===" > "$LOG"
+echo "=== UB450 Region-Free v5.4 ===" > "$LOG"
 log "Started: $(date)"
 log "Kernel: $(uname -a 2>/dev/null)"
 log "Target: DVD=$DVD_TARGET, BD=$BD_TARGET"
@@ -196,11 +196,37 @@ else
     fi
 fi
 
+# --- Config file write (do this FIRST — fast, always works for BD) ---
+# The player may kill this subprocess at any time, so write the config
+# before attempting slower methods (curl, EEPROM scan).
+
+printf "\\x$(printf '%02x' $BD_TARGET)" | dd of="$CONF" bs=1 seek=$BD_VAL_OFF conv=notrunc 2>/dev/null
+if [ -n "$DVD_TARGET" ]; then
+    printf "\\x$(printf '%02x' $DVD_TARGET)" | dd of="$CONF" bs=1 seek=$DVD_VAL_OFF conv=notrunc 2>/dev/null
+fi
+sync
+log "Config write done: DVD=$DVD_TARGET at $DVD_VAL_OFF, BD=$BD_TARGET at $BD_VAL_OFF"
+
+if [ -f /acfg/config_file.txt ]; then
+    DVD_KEY_OFF2=$(find_offset /acfg/config_file.txt "IDX_GB_PTT_REGIONCODE")
+    BD_KEY_OFF2=$(find_offset /acfg/config_file.txt "IDX_GB_PTT_BDREGIONCODE")
+    if [ -n "$DVD_KEY_OFF2" ]; then
+        DVD_VAL_OFF2=$((DVD_KEY_OFF2 + 36))
+        printf "\\x$(printf '%02x' $DVD_TARGET)" | dd of=/acfg/config_file.txt bs=1 seek=$DVD_VAL_OFF2 conv=notrunc 2>/dev/null
+    fi
+    if [ -n "$BD_KEY_OFF2" ]; then
+        BD_VAL_OFF2=$((BD_KEY_OFF2 + 36))
+        printf "\\x$(printf '%02x' $BD_TARGET)" | dd of=/acfg/config_file.txt bs=1 seek=$BD_VAL_OFF2 conv=notrunc 2>/dev/null
+    fi
+    sync
+    log "Also wrote to config_file.txt"
+fi
+
 # --- Method 1: Web CLI (proper API path, handles DVD + BD) ---
 
 CLI_OK=0
 if [ -x /usr/bin/curl ]; then
-    resp=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "http://127.0.0.1:8383/" 2>/dev/null)
+    resp=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 1 "http://127.0.0.1:8383/" 2>/dev/null)
     log "Web CLI probe: HTTP $resp"
     if [ "$resp" = "200" ] || [ "$resp" = "301" ] || [ "$resp" = "302" ]; then
         # Read current values via CLI
@@ -357,35 +383,6 @@ if [ "$CLI_OK" = "0" ] && [ -n "$DVD_TARGET" ]; then
         cat /proc/mtd >> "$LOG" 2>&1 || true
         log "Run diag.sh to collect full device data for debugging."
     fi
-fi
-
-# --- Method 3: Config file write (always works for BD; DVD needs EEPROM too) ---
-
-# Write BD region (this always works for BD — no EEPROM involved)
-printf "\\x$(printf '%02x' $BD_TARGET)" | dd of="$CONF" bs=1 seek=$BD_VAL_OFF conv=notrunc 2>/dev/null
-
-# Write DVD region to config file too (supplements EEPROM write)
-if [ -n "$DVD_TARGET" ]; then
-    printf "\\x$(printf '%02x' $DVD_TARGET)" | dd of="$CONF" bs=1 seek=$DVD_VAL_OFF conv=notrunc 2>/dev/null
-    log "Config write: DVD=$DVD_TARGET at offset $DVD_VAL_OFF"
-fi
-sync
-
-# Also write to config_file.txt if it has the keys
-if [ -f /acfg/config_file.txt ]; then
-    DVD_KEY_OFF2=$(find_offset /acfg/config_file.txt "IDX_GB_PTT_REGIONCODE")
-    BD_KEY_OFF2=$(find_offset /acfg/config_file.txt "IDX_GB_PTT_BDREGIONCODE")
-    if [ -n "$DVD_KEY_OFF2" ]; then
-        DVD_VAL_OFF2=$((DVD_KEY_OFF2 + 36))
-        printf "\\x$(printf '%02x' $DVD_TARGET)" | dd of=/acfg/config_file.txt bs=1 seek=$DVD_VAL_OFF2 conv=notrunc 2>/dev/null
-        log "Also wrote DVD=$DVD_TARGET to config_file.txt at offset $DVD_VAL_OFF2"
-    fi
-    if [ -n "$BD_KEY_OFF2" ]; then
-        BD_VAL_OFF2=$((BD_KEY_OFF2 + 36))
-        printf "\\x$(printf '%02x' $BD_TARGET)" | dd of=/acfg/config_file.txt bs=1 seek=$BD_VAL_OFF2 conv=notrunc 2>/dev/null
-        log "Also wrote BD=$BD_TARGET to config_file.txt at offset $BD_VAL_OFF2"
-    fi
-    sync
 fi
 
 # --- Verify ---
