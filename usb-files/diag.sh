@@ -13,6 +13,74 @@ echo "Started: $(date)" >> "$LOG"
 
 log() { echo "$1" >> "$LOG"; }
 
+# 0. System info
+log ""
+log "--- System info ---"
+log "Kernel: $(uname -a 2>/dev/null)"
+log "CPU: $(grep -m1 'model name\|Processor\|Hardware' /proc/cpuinfo 2>/dev/null | head -1)"
+log "Board: $(cat /proc/device-tree/model 2>/dev/null || grep -m1 'Hardware' /proc/cpuinfo 2>/dev/null)"
+cat /etc/version >> "$LOG" 2>/dev/null
+cat /etc/firmware_version >> "$LOG" 2>/dev/null
+ls -la /dev/eeprom* /dev/mtd[0-9]* >> "$LOG" 2>&1
+
+# Model name and country from config
+MODEL_OFF=$(strings -a -t d /acfg/config_file_global.txt 2>/dev/null | grep 'IDX_GB_PTT_MODEL_NAME$' | head -1 | awk '{print $1}')
+if [ -n "$MODEL_OFF" ]; then
+    MODEL_VOFF=$((MODEL_OFF + 36))
+    MODEL_VAL=$(dd if=/acfg/config_file_global.txt bs=1 skip=$MODEL_VOFF count=32 2>/dev/null | strings | head -1)
+    log "Model: $MODEL_VAL"
+fi
+COUNTRY_OFF=$(strings -a -t d /acfg/config_file_global.txt 2>/dev/null | grep 'IDX_GB_PTT_COUNTRYCODE$' | head -1 | awk '{print $1}')
+if [ -n "$COUNTRY_OFF" ]; then
+    COUNTRY_VOFF=$((COUNTRY_OFF + 36))
+    COUNTRY_VAL=$(dd if=/acfg/config_file_global.txt bs=1 skip=$COUNTRY_VOFF count=4 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f ')
+    log "Country code: $COUNTRY_VAL"
+fi
+
+# Current region values from config file
+log ""
+log "--- Current regions (config file) ---"
+DVD_OFF=$(strings -a -t d /acfg/config_file_global.txt 2>/dev/null | grep 'IDX_GB_PTT_REGIONCODE$' | head -1 | awk '{print $1}')
+if [ -n "$DVD_OFF" ]; then
+    DVD_VOFF=$((DVD_OFF + 36))
+    DVD_VAL=$(dd if=/acfg/config_file_global.txt bs=1 skip=$DVD_VOFF count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+    DVD_DEC=$(printf '%d' "0x${DVD_VAL:-ff}" 2>/dev/null)
+    log "DVD region: $DVD_DEC (0x$DVD_VAL)  [0=free 1=US 2=Europe 3=SE-Asia 4=AU 5=Russia 6=China]"
+fi
+BD_OFF=$(strings -a -t d /acfg/config_file_global.txt 2>/dev/null | grep 'IDX_GB_PTT_BDREGIONCODE$' | head -1 | awk '{print $1}')
+if [ -n "$BD_OFF" ]; then
+    BD_VOFF=$((BD_OFF + 36))
+    BD_VAL=$(dd if=/acfg/config_file_global.txt bs=1 skip=$BD_VOFF count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+    BD_DEC=$(printf '%d' "0x${BD_VAL:-ff}" 2>/dev/null)
+    log "BD region:  $BD_DEC (0x$BD_VAL)  [1=A 2=B 4=C 7=all]"
+fi
+IR_OFF=$(strings -a -t d /acfg/config_file_global.txt 2>/dev/null | grep 'IDX_GB_PTT_IR_REGIONCODE$' | head -1 | awk '{print $1}')
+if [ -n "$IR_OFF" ]; then
+    IR_VOFF=$((IR_OFF + 36))
+    IR_VAL=$(dd if=/acfg/config_file_global.txt bs=1 skip=$IR_VOFF count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+    IR_DEC=$(printf '%d' "0x${IR_VAL:-ff}" 2>/dev/null)
+    log "IR region:  $IR_DEC (0x$IR_VAL)"
+fi
+
+# Current live region from the player (via CLI — these are the values the player is actually using)
+log ""
+log "--- Current regions (player live) ---"
+LIVE_REGION=""
+# Try cliprog first (direct IPC to bdpprog)
+if [ -x /usr/local/bin/cliprog ]; then
+    LIVE_REGION=$(cliprog app.acfg.rg 2>/dev/null)
+    [ -n "$LIVE_REGION" ] && log "cliprog app.acfg.rg: $LIVE_REGION"
+fi
+# Try Web CLI if cliprog didn't work
+if [ -z "$LIVE_REGION" ] && [ -x /usr/bin/curl ]; then
+    CLI_RESP=$(curl -s --connect-timeout 2 "http://127.0.0.1:8383/config.cgi?page=get_log_and_set_cli_result.html&flag=cli_cmd&cli_value=app.acfg.rg" 2>/dev/null)
+    LIVE_REGION=$(echo "$CLI_RESP" | strings 2>/dev/null | grep "region code")
+    [ -n "$LIVE_REGION" ] && log "Web CLI app.acfg.rg: $LIVE_REGION"
+fi
+if [ -z "$LIVE_REGION" ]; then
+    log "Could not read live region (CLI not reachable) — config file values shown above"
+fi
+
 # 1. All config files under /acfg/
 log ""
 log "--- /acfg/ files ---"

@@ -1,5 +1,5 @@
 #!/bin/sh
-# DP-UB450/UB150 Region-Free Script v5.1
+# DP-UB450/UB150 Region-Free Script v5.2
 # Runs automatically when a Blu-ray disc is loaded with BDJ_DEBUG on the USB.
 # Sets Blu-ray to all regions (A+B+C) and optionally DVD to a chosen region.
 #
@@ -26,8 +26,9 @@ fi
 
 log() { echo "$1" >> "$LOG"; }
 
-echo "=== UB450 Region-Free v5 ===" > "$LOG"
+echo "=== UB450 Region-Free v5.2 ===" > "$LOG"
 log "Started: $(date)"
+log "Kernel: $(uname -a 2>/dev/null)"
 log "Target: DVD=$DVD_TARGET, BD=$BD_TARGET"
 
 if [ ! -f "$CONF" ]; then
@@ -414,8 +415,8 @@ else
     log "Power off the player, remove the USB, and turn it back on."
 fi
 
-# Run diagnostics automatically if EEPROM write failed and diag.sh is on the USB
-if [ "$EEPROM_OK" = "0" ] && [ "$CLI_OK" = "0" ] && [ -f "$USB/diag.sh" ]; then
-    log "EEPROM write failed — running diag.sh automatically"
+# Run diagnostics automatically if diag.sh is on the USB
+if [ -f "$USB/diag.sh" ]; then
+    log "Running diag.sh to collect device data"
     sh "$USB/diag.sh"
 fi
