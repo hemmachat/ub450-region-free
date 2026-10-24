@@ -1,11 +1,12 @@
 #!/bin/sh
-# DP-UB450/UB150 Region-Free Script v5
+# DP-UB450/UB150 Region-Free Script v5.1
 # Runs automatically when a Blu-ray disc is loaded with BDJ_DEBUG on the USB.
 # Sets Blu-ray to all regions (A+B+C) and optionally DVD to a chosen region.
 #
 # Three methods, tried in order:
 #   1. Web CLI (app.acfg.rg) — proper API, handles both DVD and BD
 #   2. EEPROM direct write — writes DVD region to hardware (offset 0x200)
+#      Scans /dev/eeprom*, /dev/mtd* (char), and sysfs I2C EEPROM paths
 #   3. Config file write — always works for BD; DVD needs EEPROM too
 
 CONF=/acfg/config_file_global.txt
@@ -237,18 +238,80 @@ fi
 
 EEPROM_OK=0
 if [ "$CLI_OK" = "0" ] && [ -n "$DVD_TARGET" ]; then
-    for EEPROM_DEV in /dev/eeprom_0 /dev/eeprom_3; do
-        if [ ! -e "$EEPROM_DEV" ]; then continue; fi
+    # Read the current DVD region from config file — the EEPROM value must match this,
+    # since the firmware loads DVD from EEPROM into config at boot.
+    CFG_DVD_DEC=$(printf '%d' "0x${DVD_HEX:-ff}" 2>/dev/null)
+    log "Config file DVD region: $CFG_DVD_DEC (0x$DVD_HEX) — EEPROM must match this"
+
+    # Build MTD size table from /proc/mtd (hex sizes, to skip large firmware partitions)
+    # Format: "mtdN SIZE_DEC" per line. EEPROM is typically < 256KB.
+    MTD_SIZES=""
+    if [ -f /proc/mtd ]; then
+        MTD_SIZES=$(while IFS=': ' read name size erasesize rest; do
+            case "$name" in mtd[0-9]*) printf '%s %d\n' "$name" "0x$size" 2>/dev/null;; esac
+        done < /proc/mtd)
+    fi
+    mtd_size() {
+        echo "$MTD_SIZES" | while read _n _s; do [ "$_n" = "$1" ] && echo "$_s" && return; done
+    }
+
+    # Collect candidate EEPROM devices: /dev/eeprom*, /dev/mtd[0-9]* (char), sysfs I2C
+    EEPROM_CANDIDATES=""
+    for p in /dev/eeprom*; do [ -e "$p" ] && EEPROM_CANDIDATES="$EEPROM_CANDIDATES $p"; done
+    for p in /dev/mtd[0-9]*; do
+        # Skip mtdblock* (block devices) — use char device only
+        case "$p" in *block*) continue;; esac
+        [ -e "$p" ] || continue
+        # Skip large partitions (> 256KB) — not EEPROM
+        _mtdname=$(basename "$p")
+        _mtdsize=$(mtd_size "$_mtdname")
+        if [ -n "$_mtdsize" ] && [ "$_mtdsize" -gt 262144 ] 2>/dev/null; then
+            continue
+        fi
+        EEPROM_CANDIDATES="$EEPROM_CANDIDATES $p"
+    done
+    for p in /sys/bus/i2c/devices/*/eeprom; do [ -e "$p" ] && EEPROM_CANDIDATES="$EEPROM_CANDIDATES $p"; done
+
+    if [ -z "$EEPROM_CANDIDATES" ]; then
+        log "No EEPROM/MTD/I2C devices found at all"
+        ls -la /dev/eeprom* /dev/mtd* /dev/i2c* >> "$LOG" 2>&1 || log "(no matching devices in /dev/)"
+    else
+        log "EEPROM candidates:$EEPROM_CANDIDATES"
+    fi
+
+    for EEPROM_DEV in $EEPROM_CANDIDATES; do
 
         # Read 4 bytes at offset 0x200 — the firmware stores DVD region here
-        EEPROM_VAL=$(dd if="$EEPROM_DEV" bs=1 skip=512 count=4 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+        EEPROM_RAW=$(dd if="$EEPROM_DEV" bs=1 skip=512 count=4 2>/dev/null)
+        if [ -z "$EEPROM_RAW" ]; then
+            log "EEPROM $EEPROM_DEV: read at 0x200 returned empty (not readable)"
+            continue
+        fi
+        EEPROM_VAL=$(printf '%s' "$EEPROM_RAW" | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+        if [ -z "$EEPROM_VAL" ]; then
+            EEPROM_VAL=$(printf '%s' "$EEPROM_RAW" | hexdump -v -e '4/1 "%02x"' 2>/dev/null)
+        fi
         EEPROM_BYTE="${EEPROM_VAL%"${EEPROM_VAL#??}"}"
         log "EEPROM $EEPROM_DEV offset 0x200: first byte=0x$EEPROM_BYTE (full: $EEPROM_VAL)"
 
-        # Validate: the current value should be a valid DVD region (0-6)
+        # Validate: the value should be a valid DVD region (0-6) AND match the config file
         EEPROM_DEC=$(printf '%d' "0x${EEPROM_BYTE:-ff}" 2>/dev/null)
         if [ "$EEPROM_DEC" -le 6 ] 2>/dev/null; then
-            log "EEPROM $EEPROM_DEV looks like the DVD region source (current=$EEPROM_DEC)"
+            if [ "$EEPROM_DEC" != "$CFG_DVD_DEC" ]; then
+                log "EEPROM $EEPROM_DEV: valid region ($EEPROM_DEC) but doesn't match config ($CFG_DVD_DEC), skipping"
+                continue
+            fi
+            # Extra safety for MTD devices: check IR region at 0x205 is also valid (0 or 1)
+            case "$EEPROM_DEV" in /dev/mtd*)
+                IR_BYTE=$(dd if="$EEPROM_DEV" bs=1 skip=517 count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+                IR_DEC=$(printf '%d' "0x${IR_BYTE:-ff}" 2>/dev/null)
+                if [ "$IR_DEC" -gt 1 ] 2>/dev/null; then
+                    log "EEPROM $EEPROM_DEV: DVD matches but IR at 0x205 = $IR_DEC (expected 0 or 1), likely wrong partition"
+                    continue
+                fi
+                log "EEPROM $EEPROM_DEV: IR at 0x205 = $IR_DEC (valid)"
+            ;; esac
+            log "EEPROM $EEPROM_DEV: matches config DVD region ($EEPROM_DEC) — this is the DVD EEPROM source"
 
             # Back up original EEPROM value
             if [ ! -f "$USB/.eeprom_dvd_backup.bin" ]; then
@@ -264,20 +327,29 @@ if [ "$CLI_OK" = "0" ] && [ -n "$DVD_TARGET" ]; then
 
             # Verify
             EEPROM_CHECK=$(dd if="$EEPROM_DEV" bs=1 skip=512 count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+            if [ -z "$EEPROM_CHECK" ]; then
+                EEPROM_CHECK=$(dd if="$EEPROM_DEV" bs=1 skip=512 count=1 2>/dev/null | hexdump -v -e '1/1 "%02x"' 2>/dev/null)
+            fi
             if [ "$EEPROM_CHECK" = "$(printf '%02x' $DVD_TARGET)" ]; then
                 EEPROM_OK=1
                 log "EEPROM write SUCCEEDED: DVD=$DVD_TARGET at $EEPROM_DEV offset 0x200"
             else
-                log "EEPROM write FAILED to verify (got 0x$EEPROM_CHECK)"
+                log "EEPROM write FAILED to verify (got 0x$EEPROM_CHECK, expected $(printf '%02x' $DVD_TARGET))"
+                log "Device may be read-only or need mtd_debug/flash_erase for write"
             fi
             break
         else
-            log "EEPROM $EEPROM_DEV offset 0x200 value $EEPROM_DEC not a valid DVD region, skipping"
+            log "EEPROM $EEPROM_DEV offset 0x200: value $EEPROM_DEC not a valid DVD region (0-6), skipping"
         fi
     done
 
     if [ "$EEPROM_OK" = "0" ]; then
         log "No EEPROM device found with valid DVD region at offset 0x200"
+        log "--- /dev/ device listing for debugging ---"
+        ls /dev/eeprom* /dev/mtd* /dev/i2c* >> "$LOG" 2>&1 || true
+        log "--- /proc/mtd ---"
+        cat /proc/mtd >> "$LOG" 2>&1 || true
+        log "Run diag.sh to collect full device data for debugging."
     fi
 fi
 

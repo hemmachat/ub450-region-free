@@ -189,25 +189,42 @@ if [ -f /acfg/config_file.txt ]; then
     fi
 fi
 
-# 12. Check EEPROM offset 0x200 (firmware reads DVD region from here at init)
+# 12. Check offset 0x200 across all EEPROM/MTD devices (firmware reads DVD from here)
 log ""
-log "--- EEPROM offset 0x200 (DVD region hardware source) ---"
+log "--- Offset 0x200 scan (DVD region hardware source) ---"
 log "The firmware reads DVD region from EEPROM device 0x15 at offset 0x200 on every boot."
 log "This value overrides the config file. BD has no EEPROM copy."
-for dev in /dev/eeprom_0 /dev/eeprom_3; do
-    if [ -e "$dev" ]; then
-        EEPVAL=$(dd if="$dev" bs=1 skip=512 count=4 2>/dev/null | od -An -tx1 | tr -cd '0-9a-f ')
-        EEPBYTE=$(echo "$EEPVAL" | head -c 2)
-        EEPDEC=$(printf '%d' "0x${EEPBYTE:-ff}" 2>/dev/null)
+log "Scanning /dev/eeprom* and small /dev/mtd* partitions..."
+
+# Get config file DVD region for cross-reference
+DIAG_DVD_OFF=$(strings -a -t d /acfg/config_file_global.txt 2>/dev/null | grep 'IDX_GB_PTT_REGIONCODE$' | head -1 | awk '{print $1}')
+if [ -n "$DIAG_DVD_OFF" ]; then
+    DIAG_DVD_VOFF=$((DIAG_DVD_OFF + 36))
+    DIAG_CFG_DVD=$(dd if=/acfg/config_file_global.txt bs=1 skip=$DIAG_DVD_VOFF count=1 2>/dev/null | od -An -tx1 | tr -cd '0-9a-f')
+    DIAG_CFG_DEC=$(printf '%d' "0x${DIAG_CFG_DVD:-ff}" 2>/dev/null)
+    log "Config file DVD region: $DIAG_CFG_DEC (0x$DIAG_CFG_DVD) — EEPROM match expected"
+fi
+
+DIAG_DEVS=""
+for p in /dev/eeprom*; do [ -e "$p" ] && DIAG_DEVS="$DIAG_DEVS $p"; done
+for p in /dev/mtd[0-9]*; do
+    case "$p" in *block*) continue;; esac
+    [ -e "$p" ] && DIAG_DEVS="$DIAG_DEVS $p"
+done
+
+for dev in $DIAG_DEVS; do
+    EEPVAL=$(dd if="$dev" bs=1 skip=512 count=4 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f ')
+    EEPBYTE=$(echo "$EEPVAL" | head -c 2)
+    EEPDEC=$(printf '%d' "0x${EEPBYTE:-ff}" 2>/dev/null)
+    if [ "$EEPDEC" -le 6 ] 2>/dev/null; then
         log "$dev offset 0x200: $EEPVAL (first byte=0x$EEPBYTE = $EEPDEC)"
-        if [ "$EEPDEC" -le 6 ] 2>/dev/null; then
-            log "  -> VALID DVD region ($EEPDEC) — THIS IS LIKELY THE DVD REGION EEPROM"
-            log "  -> To fix DVD: write target region here with dd"
+        if [ -n "$DIAG_CFG_DEC" ] && [ "$EEPDEC" = "$DIAG_CFG_DEC" ]; then
+            log "  -> MATCH — valid DVD region ($EEPDEC) matching config — THIS IS THE DVD EEPROM"
         else
-            log "  -> Not a valid DVD region value"
+            log "  -> VALID DVD region ($EEPDEC) but doesn't match config ($DIAG_CFG_DEC)"
         fi
         # Also check IR region at 0x205
-        IRVAL=$(dd if="$dev" bs=1 skip=517 count=4 2>/dev/null | od -An -tx1 | tr -cd '0-9a-f ')
+        IRVAL=$(dd if="$dev" bs=1 skip=517 count=4 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f ')
         log "  offset 0x205 (IR region): $IRVAL"
         # Dump wider area
         dd if="$dev" bs=1 skip=496 count=32 2>/dev/null | od -An -tx1 > "$OUT/$(basename $dev)_0x1f0.hex" 2>/dev/null
