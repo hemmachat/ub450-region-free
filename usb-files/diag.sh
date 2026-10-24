@@ -1,6 +1,6 @@
 #!/bin/sh
 # DVD Region Diagnostic — collects data to fix the DVD region change.
-# Runs on the player via the same BD-Java exploit as run.sh.
+# Runs on the player via the same BD-Java debug mode as run.sh.
 # Saves everything to USB under diag_output/.
 
 USB=/mnt/sda1
