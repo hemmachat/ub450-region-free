@@ -187,6 +187,8 @@ Region code values confirmed against the [Blu-ray specification (PSR 20)](https:
 
 ## Changelog
 
+**v5.3** — Fixed script hanging on some players during EEPROM/MTD device scanning. All `dd` reads and writes to hardware devices now have a 3-second timeout, so a non-responsive device is skipped instead of blocking forever. Also dumps `/proc/mtd` and device listing to the log before scanning, so diagnostic data is captured even if a device hangs. `diag.sh` device reads also have timeouts (5 seconds).
+
 **v5.2** — Improved diagnostics: `diag.sh` now runs automatically every time (not just on failure), collects model name, firmware version, kernel info, country code, and current DVD/BD/IR region values from both the config file and the player's live settings. The log header now shows the script version and kernel. Verified that AU, UK, CAD, and US firmware all use identical BD-Java classes — `build.py` works with any of them.
 
 **v5.1** — Fixed EEPROM detection on players that expose EEPROM through MTD devices (`/dev/mtd*`) instead of `/dev/eeprom_*`. v5 only searched for `/dev/eeprom_0` and `/dev/eeprom_3`, which don't exist on most UB450 units. The script now scans all MTD partitions (filtered by size < 256KB), cross-references the value at offset 0x200 against the config file's DVD region, and checks the IR region at 0x205 for extra safety. Also dumps `/dev/` listing and `/proc/mtd` to the log when no EEPROM is found, for easier debugging.

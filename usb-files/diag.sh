@@ -117,7 +117,7 @@ ls -la /dev/mtd[0-9]* >> "$LOG" 2>&1
 for dev in /dev/eeprom_0 /dev/eeprom_3; do
     if [ -e "$dev" ]; then
         base=$(basename "$dev")
-        dd if="$dev" of="$OUT/$base.bin" bs=4096 count=16 2>/dev/null
+        timeout 5 dd if="$dev" of="$OUT/$base.bin" bs=4096 count=16 2>/dev/null
         sz=$(wc -c < "$OUT/$base.bin" | tr -d ' ')
         log "Dumped $dev: $sz bytes"
         # Search for region key in EEPROM
@@ -133,7 +133,7 @@ done
 for i in 0 1 2 3 4 5; do
     dev="/dev/mtd$i"
     if [ -e "$dev" ]; then
-        dd if="$dev" of="$OUT/mtd${i}.bin" bs=4096 count=16 2>/dev/null
+        timeout 5 dd if="$dev" of="$OUT/mtd${i}.bin" bs=4096 count=16 2>/dev/null
         sz=$(wc -c < "$OUT/mtd${i}.bin" | tr -d ' ')
         log "Dumped $dev: $sz bytes"
         if strings "$OUT/mtd${i}.bin" 2>/dev/null | grep -q "IDX_GB_PTT"; then
@@ -281,7 +281,7 @@ for p in /dev/mtd[0-9]*; do
 done
 
 for dev in $DIAG_DEVS; do
-    EEPVAL=$(dd if="$dev" bs=1 skip=512 count=4 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f ')
+    EEPVAL=$(timeout 3 dd if="$dev" bs=1 skip=512 count=4 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f ')
     EEPBYTE=$(echo "$EEPVAL" | head -c 2)
     EEPDEC=$(printf '%d' "0x${EEPBYTE:-ff}" 2>/dev/null)
     if [ "$EEPDEC" -le 6 ] 2>/dev/null; then
@@ -292,10 +292,10 @@ for dev in $DIAG_DEVS; do
             log "  -> VALID DVD region ($EEPDEC) but doesn't match config ($DIAG_CFG_DEC)"
         fi
         # Also check IR region at 0x205
-        IRVAL=$(dd if="$dev" bs=1 skip=517 count=4 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f ')
+        IRVAL=$(timeout 3 dd if="$dev" bs=1 skip=517 count=4 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f ')
         log "  offset 0x205 (IR region): $IRVAL"
         # Dump wider area
-        dd if="$dev" bs=1 skip=496 count=32 2>/dev/null | od -An -tx1 > "$OUT/$(basename $dev)_0x1f0.hex" 2>/dev/null
+        timeout 3 dd if="$dev" bs=1 skip=496 count=32 2>/dev/null | od -An -tx1 > "$OUT/$(basename $dev)_0x1f0.hex" 2>/dev/null
         log "  (bytes 0x1F0-0x20F saved)"
     fi
 done

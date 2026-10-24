@@ -1,5 +1,5 @@
 #!/bin/sh
-# DP-UB450/UB150 Region-Free Script v5.2
+# DP-UB450/UB150 Region-Free Script v5.3
 # Runs automatically when a Blu-ray disc is loaded with BDJ_DEBUG on the USB.
 # Sets Blu-ray to all regions (A+B+C) and optionally DVD to a chosen region.
 #
@@ -26,7 +26,7 @@ fi
 
 log() { echo "$1" >> "$LOG"; }
 
-echo "=== UB450 Region-Free v5.2 ===" > "$LOG"
+echo "=== UB450 Region-Free v5.3 ===" > "$LOG"
 log "Started: $(date)"
 log "Kernel: $(uname -a 2>/dev/null)"
 log "Target: DVD=$DVD_TARGET, BD=$BD_TARGET"
@@ -158,7 +158,7 @@ if [ -f "$USB/RESTORE" ]; then
         if [ -f "$USB/.eeprom_dvd_backup.bin" ] && [ -f "$USB/.eeprom_device.txt" ]; then
             RESTORE_EEPROM=$(cat "$USB/.eeprom_device.txt")
             if [ -e "$RESTORE_EEPROM" ]; then
-                dd if="$USB/.eeprom_dvd_backup.bin" of="$RESTORE_EEPROM" bs=1 seek=512 conv=notrunc 2>/dev/null
+                timeout 3 dd if="$USB/.eeprom_dvd_backup.bin" of="$RESTORE_EEPROM" bs=1 seek=512 conv=notrunc 2>/dev/null
                 log "EEPROM restored at $RESTORE_EEPROM offset 0x200"
             fi
         fi
@@ -273,9 +273,14 @@ if [ "$CLI_OK" = "0" ] && [ -n "$DVD_TARGET" ]; then
     done
     for p in /sys/bus/i2c/devices/*/eeprom; do [ -e "$p" ] && EEPROM_CANDIDATES="$EEPROM_CANDIDATES $p"; done
 
+    # Dump device info before scanning (in case a dd read hangs)
+    log "--- /proc/mtd ---"
+    cat /proc/mtd >> "$LOG" 2>&1 || true
+    log "--- /dev/ devices ---"
+    ls /dev/eeprom* /dev/mtd* >> "$LOG" 2>&1 || true
+
     if [ -z "$EEPROM_CANDIDATES" ]; then
         log "No EEPROM/MTD/I2C devices found at all"
-        ls -la /dev/eeprom* /dev/mtd* /dev/i2c* >> "$LOG" 2>&1 || log "(no matching devices in /dev/)"
     else
         log "EEPROM candidates:$EEPROM_CANDIDATES"
     fi
@@ -283,7 +288,7 @@ if [ "$CLI_OK" = "0" ] && [ -n "$DVD_TARGET" ]; then
     for EEPROM_DEV in $EEPROM_CANDIDATES; do
 
         # Read 4 bytes at offset 0x200 — the firmware stores DVD region here
-        EEPROM_RAW=$(dd if="$EEPROM_DEV" bs=1 skip=512 count=4 2>/dev/null)
+        EEPROM_RAW=$(timeout 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=4 2>/dev/null)
         if [ -z "$EEPROM_RAW" ]; then
             log "EEPROM $EEPROM_DEV: read at 0x200 returned empty (not readable)"
             continue
@@ -304,7 +309,7 @@ if [ "$CLI_OK" = "0" ] && [ -n "$DVD_TARGET" ]; then
             fi
             # Extra safety for MTD devices: check IR region at 0x205 is also valid (0 or 1)
             case "$EEPROM_DEV" in /dev/mtd*)
-                IR_BYTE=$(dd if="$EEPROM_DEV" bs=1 skip=517 count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+                IR_BYTE=$(timeout 3 dd if="$EEPROM_DEV" bs=1 skip=517 count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
                 IR_DEC=$(printf '%d' "0x${IR_BYTE:-ff}" 2>/dev/null)
                 if [ "$IR_DEC" -gt 1 ] 2>/dev/null; then
                     log "EEPROM $EEPROM_DEV: DVD matches but IR at 0x205 = $IR_DEC (expected 0 or 1), likely wrong partition"
@@ -316,20 +321,20 @@ if [ "$CLI_OK" = "0" ] && [ -n "$DVD_TARGET" ]; then
 
             # Back up original EEPROM value
             if [ ! -f "$USB/.eeprom_dvd_backup.bin" ]; then
-                dd if="$EEPROM_DEV" bs=1 skip=512 count=4 of="$USB/.eeprom_dvd_backup.bin" 2>/dev/null
+                timeout 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=4 of="$USB/.eeprom_dvd_backup.bin" 2>/dev/null
                 echo "$EEPROM_DEV" > "$USB/.eeprom_device.txt"
                 log "EEPROM backup saved"
             fi
 
             # Write new DVD region as a 4-byte LE value (firmware reads 4 bytes, uses low byte)
             printf "\\x$(printf '%02x' $DVD_TARGET)\\x00\\x00\\x00" | \
-                dd of="$EEPROM_DEV" bs=1 seek=512 conv=notrunc 2>/dev/null
+                timeout 3 dd of="$EEPROM_DEV" bs=1 seek=512 conv=notrunc 2>/dev/null
             sync
 
             # Verify
-            EEPROM_CHECK=$(dd if="$EEPROM_DEV" bs=1 skip=512 count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+            EEPROM_CHECK=$(timeout 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
             if [ -z "$EEPROM_CHECK" ]; then
-                EEPROM_CHECK=$(dd if="$EEPROM_DEV" bs=1 skip=512 count=1 2>/dev/null | hexdump -v -e '1/1 "%02x"' 2>/dev/null)
+                EEPROM_CHECK=$(timeout 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=1 2>/dev/null | hexdump -v -e '1/1 "%02x"' 2>/dev/null)
             fi
             if [ "$EEPROM_CHECK" = "$(printf '%02x' $DVD_TARGET)" ]; then
                 EEPROM_OK=1
