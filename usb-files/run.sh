@@ -1,13 +1,11 @@
 #!/bin/sh
-# DP-UB450/UB150 Region-Free Script v5.4
+# DP-UB450/UB150 Region-Free Script v5.5
 # Runs automatically when a Blu-ray disc is loaded with BDJ_DEBUG on the USB.
 # Sets Blu-ray to all regions (A+B+C) and optionally DVD to a chosen region.
 #
-# Three methods, tried in order:
-#   1. Web CLI (app.acfg.rg) — proper API, handles both DVD and BD
-#   2. EEPROM direct write — writes DVD region to hardware (offset 0x200)
-#      Scans /dev/eeprom*, /dev/mtd* (char), and sysfs I2C EEPROM paths
-#   3. Config file write — always works for BD; DVD needs EEPROM too
+# 1. Config file write — fast, always works for BD
+# 2. EEPROM direct write — writes DVD region to hardware (offset 0x200)
+#    Scans /dev/eeprom*, /dev/mtd* (char), and sysfs I2C EEPROM paths
 
 CONF=/acfg/config_file_global.txt
 USB=/mnt/sda1
@@ -26,7 +24,7 @@ fi
 
 log() { echo "$1" >> "$LOG"; }
 
-echo "=== UB450 Region-Free v5.4 ===" > "$LOG"
+echo "=== UB450 Region-Free v5.5 ===" > "$LOG"
 log "Started: $(date)"
 log "Kernel: $(uname -a 2>/dev/null)"
 log "Target: DVD=$DVD_TARGET, BD=$BD_TARGET"
@@ -198,7 +196,7 @@ fi
 
 # --- Config file write (do this FIRST — fast, always works for BD) ---
 # The player may kill this subprocess at any time, so write the config
-# before attempting slower methods (curl, EEPROM scan).
+# before the EEPROM scan.
 
 printf "\\x$(printf '%02x' $BD_TARGET)" | dd of="$CONF" bs=1 seek=$BD_VAL_OFF conv=notrunc 2>/dev/null
 if [ -n "$DVD_TARGET" ]; then
@@ -207,64 +205,14 @@ fi
 sync
 log "Config write done: DVD=$DVD_TARGET at $DVD_VAL_OFF, BD=$BD_TARGET at $BD_VAL_OFF"
 
-if [ -f /acfg/config_file.txt ]; then
-    DVD_KEY_OFF2=$(find_offset /acfg/config_file.txt "IDX_GB_PTT_REGIONCODE")
-    BD_KEY_OFF2=$(find_offset /acfg/config_file.txt "IDX_GB_PTT_BDREGIONCODE")
-    if [ -n "$DVD_KEY_OFF2" ]; then
-        DVD_VAL_OFF2=$((DVD_KEY_OFF2 + 36))
-        printf "\\x$(printf '%02x' $DVD_TARGET)" | dd of=/acfg/config_file.txt bs=1 seek=$DVD_VAL_OFF2 conv=notrunc 2>/dev/null
-    fi
-    if [ -n "$BD_KEY_OFF2" ]; then
-        BD_VAL_OFF2=$((BD_KEY_OFF2 + 36))
-        printf "\\x$(printf '%02x' $BD_TARGET)" | dd of=/acfg/config_file.txt bs=1 seek=$BD_VAL_OFF2 conv=notrunc 2>/dev/null
-    fi
-    sync
-    log "Also wrote to config_file.txt"
-fi
-
-# --- Method 1: Web CLI (proper API path, handles DVD + BD) ---
-
-CLI_OK=0
-if [ -x /usr/bin/curl ]; then
-    resp=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 1 "http://127.0.0.1:8383/" 2>/dev/null)
-    log "Web CLI probe: HTTP $resp"
-    if [ "$resp" = "200" ] || [ "$resp" = "301" ] || [ "$resp" = "302" ]; then
-        # Read current values via CLI
-        CLI_READ=$(curl -s --connect-timeout 3 "http://127.0.0.1:8383/config.cgi?page=get_log_and_set_cli_result.html&flag=cli_cmd&cli_value=app.acfg.rg" 2>/dev/null)
-        log "CLI read: $(echo "$CLI_READ" | strings 2>/dev/null | grep 'region code')"
-
-        # Set regions via CLI: app.acfg.rg <dvd> <bd> <ir>
-        CLI_CMD="app.acfg.rg+${DVD_TARGET}+${BD_TARGET}+0"
-        CLI_RESP=$(curl -s --connect-timeout 5 "http://127.0.0.1:8383/config.cgi?page=get_log_and_set_cli_result.html&flag=cli_cmd&cli_value=${CLI_CMD}" 2>/dev/null)
-        log "CLI write ($CLI_CMD): $(echo "$CLI_RESP" | strings 2>/dev/null | grep -i 'region\|error\|ok' | head -3)"
-
-        # Verify via CLI read
-        CLI_VERIFY=$(curl -s --connect-timeout 3 "http://127.0.0.1:8383/config.cgi?page=get_log_and_set_cli_result.html&flag=cli_cmd&cli_value=app.acfg.rg" 2>/dev/null)
-        VERIFY_LINE=$(echo "$CLI_VERIFY" | strings 2>/dev/null | grep 'region code')
-        log "CLI verify: $VERIFY_LINE"
-
-        # Check if DVD and BD values match target
-        if echo "$VERIFY_LINE" | grep -q "DVD region code=$DVD_TARGET" && echo "$VERIFY_LINE" | grep -q "BD region code=$BD_TARGET"; then
-            CLI_OK=1
-            log "CLI method SUCCEEDED"
-        else
-            log "CLI method: values may not match target, falling back to config write"
-        fi
-    else
-        log "Web CLI not reachable, using config file method"
-    fi
-else
-    log "curl not available, using config file method"
-fi
-
-# --- Method 2: EEPROM direct write (DVD region hardware source) ---
+# --- EEPROM direct write (DVD region hardware source) ---
 # The firmware reads DVD region from EEPROM at offset 0x200 on every boot,
 # overriding the config file. Writing to EEPROM makes DVD region survive reboot.
 # The EEPROM device is opened via a "fast_init_param" lookup internally;
 # we try known device files. BD region has no EEPROM copy — config file is enough.
 
 EEPROM_OK=0
-if [ "$CLI_OK" = "0" ] && [ -n "$DVD_TARGET" ]; then
+if [ -n "$DVD_TARGET" ]; then
     # Read the current DVD region from config file — the EEPROM value must match this,
     # since the firmware loads DVD from EEPROM into config at boot.
     CFG_DVD_DEC=$(printf '%d' "0x${DVD_HEX:-ff}" 2>/dev/null)
@@ -392,9 +340,7 @@ DVD_AFTER=$(read_byte "$CONF" $DVD_VAL_OFF)
 log "After (config): DVD=0x$DVD_AFTER, BD=0x$BD_AFTER"
 
 if [ "$BD_AFTER" = "$BD_EXPECTED" ]; then
-    if [ "$CLI_OK" = "1" ]; then
-        RESULT="DVD=$DVD_TARGET BD=$BD_TARGET set via web CLI."
-    elif [ "$EEPROM_OK" = "1" ]; then
+    if [ "$EEPROM_OK" = "1" ]; then
         RESULT="DVD=$DVD_TARGET set via EEPROM + config. BD=$BD_TARGET set via config."
     else
         RESULT="BD=$BD_TARGET set via config. DVD=$DVD_TARGET written to config only (may not survive reboot — run diag.sh to help debug)."
@@ -409,9 +355,7 @@ fi
 
 log ""
 log "Finished: $(date)"
-if [ "$CLI_OK" = "1" ]; then
-    log "Regions set via CLI. Eject disc, insert the target-region disc."
-elif [ "$EEPROM_OK" = "1" ]; then
+if [ "$EEPROM_OK" = "1" ]; then
     log "DVD region written to EEPROM (survives reboot). Power off, remove USB, turn back on."
 else
     log "Power off the player, remove the USB, and turn it back on."

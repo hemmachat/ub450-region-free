@@ -161,11 +161,10 @@ If the DVD region didn't change after running the script, your player's EEPROM d
 
 ## How it works
 
-The player has a BD-Java debug mode that loads boot classes from a USB drive. The build script extracts the boot classes from your firmware file, makes a small change to allow running a shell script, and packages the result as `BDJ.jar`. When you insert a disc with the USB plugged in, the script runs and tries three methods in order:
+The player has a BD-Java debug mode that loads boot classes from a USB drive. The build script extracts the boot classes from your firmware file, makes a small change to allow running a shell script, and packages the result as `BDJ.jar`. When you insert a disc with the USB plugged in, the script runs and does two things:
 
-1. **Web CLI** — the player's internal command interface (`app.acfg.rg`), if reachable
+1. **Config file write** — writes both DVD and BD regions to the config file (always works for Blu-ray; DVD also needs the EEPROM write to survive a reboot)
 2. **EEPROM direct write** — writes the DVD region to the hardware EEPROM at offset 0x200, where the firmware reads it at every boot
-3. **Config file write** — writes both DVD and BD regions to the config file (always works for Blu-ray; DVD also needs the EEPROM write to survive a reboot)
 
 The Blu-ray region is set to all regions (A+B+C). The DVD region defaults to 1 (US) unless overridden by a `dvd_region.txt` file on the USB. The original values are backed up to the USB first. No firmware is modified. No network connection is needed.
 
@@ -186,6 +185,8 @@ No proprietary code is included in this repository. The build script operates on
 Region code values confirmed against the [Blu-ray specification (PSR 20)](https://videolan.videolan.me/libbluray/player__settings_8h.html) via libbluray and the [DVD region code standard](https://en.wikipedia.org/wiki/DVD_region_code). The BD-Java debug mode is a standard feature of the CVM runtime used in MediaTek-based Blu-ray players.
 
 ## Changelog
+
+**v5.5** — Optimised for speed. Removed the web CLI probe (port 8383 is never available during disc playback — it was wasting 1–2 seconds on every run). Removed the secondary config file write. The config write now finishes in under a second, so Blu-ray region-free is done before the player can kill the script.
 
 **v5.4** — Fixed the script being killed before writing region values. The player's BD-Java runtime can kill the subprocess at any time, so the config file write now happens immediately after backup — before the web CLI probe and EEPROM scan. This means Blu-ray region-free works even if the script is killed early. Also reduced curl timeout from 2s to 1s.
 
