@@ -66,7 +66,7 @@ Copy these files from the `usb-files/` folder to the **root** of the USB drive:
 - `BDJ.jar` (about 1.2 MB — the file you built in step 2)
 - `run.sh` (the region-change script)
 - `dvd_region.txt` (optional — edit the number on line 1 to choose your DVD region; defaults to 1 = US if missing)
-- `diag.sh` (optional — diagnostics, only needed if something goes wrong)
+- `diag.sh` (collects diagnostic data — always include this file)
 
 The USB drive should look like this:
 
@@ -76,7 +76,7 @@ USB drive (root)
 ├── BDJ.jar
 ├── run.sh
 ├── dvd_region.txt  (optional — edit to change DVD region)
-└── diag.sh         (optional)
+└── diag.sh
 ```
 
 ### 4. Run it
@@ -100,7 +100,7 @@ Your Blu-ray region is now unlocked (all regions), and DVD is set to US (region 
 Plug the USB drive back into your computer. You should see a new file on the USB:
 
 - **`REGION_FREE_OK.txt`** — it worked. The file tells you which methods were used (web CLI, EEPROM, or config file).
-- **`REGION_FREE_FAILED.txt`** — something went wrong. Check `region_log.txt` on the USB for details. You can also copy `diag.sh` to the USB and run the process again to collect diagnostic data (saved to `diag_output/` on the USB) — attach it to an issue if you need help.
+- **`REGION_FREE_FAILED.txt`** — something went wrong. Check `region_log.txt` and the `diag_output/` folder on the USB for details — attach them to an issue if you need help.
 
 The file `region_log.txt` has a full log of what happened, including your original region values (backed up automatically).
 
@@ -157,7 +157,7 @@ The script checks that the config file on your player matches the expected forma
 
 DVD regions are now supported as of v5. The player stores the DVD region in EEPROM as well as the config file, so the script writes to both. By default it sets DVD to region 1 (US). To choose a different region, put a `dvd_region.txt` file on the USB with the region number (0–6).
 
-If the DVD region didn't change after running the script, your player's EEPROM device might be different. Run `diag.sh` (copy it to the USB and repeat step 4) and open an issue with the `diag_output/` folder — this will help identify the right device.
+If the DVD region didn't change after running the script, your player's EEPROM device might be different. Check the `diag_output/` folder on the USB and open an issue with it — this will help identify the right device.
 
 ## How it works
 
