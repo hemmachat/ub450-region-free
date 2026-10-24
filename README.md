@@ -87,7 +87,7 @@ USB drive (root)
 
 Your Blu-ray region is now unlocked (all regions), and DVD is set to US (region 1) by default. Check `region_log.txt` on the USB for details.
 
-**To change the DVD region**, create a file called `dvd_region.txt` on the USB drive containing just the region number: 0 (region-free), 1 (US), 2 (Europe/Japan), 3 (SE Asia), 4 (Australia), 5 (Russia/India), or 6 (China). If no file is present, DVD defaults to region 1 (US).
+**To change the DVD region**, edit `dvd_region.txt` on the USB drive — change the number on the first line to your desired region: 0 (region-free), 1 (US), 2 (Europe/Japan), 3 (SE Asia), 4 (Australia), 5 (Russia/India), or 6 (China). Delete the file to keep the default (1 = US).
 
 ### 5. Check it worked
 
@@ -100,7 +100,7 @@ The file `region_log.txt` has a full log of what happened, including your origin
 
 ### 6. Test
 
-Insert a Blu-ray from a different region. It should play without any region error.
+Insert a Blu-ray or DVD from a different region. It should play without any region error.
 
 ## How to undo it
 
@@ -109,7 +109,7 @@ If you ever want to go back to your original region:
 1. Create an empty file called **`RESTORE`** on the USB drive (next to the other files)
 2. Repeat step 4 above (plug USB, insert disc, wait, power off, remove USB, power on)
 
-The player will restore your original region from the backup that was saved during step 4.
+The player will restore your original region from the backup that was saved during step 4 (including the EEPROM DVD region, if it was changed).
 
 ## FAQ
 
