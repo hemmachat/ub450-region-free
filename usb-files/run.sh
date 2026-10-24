@@ -1,5 +1,5 @@
 #!/bin/sh
-# DP-UB450/UB150 Region-Free Script v5.5
+# DP-UB450/UB150 Region-Free Script v5.6
 # Runs automatically when a Blu-ray disc is loaded with BDJ_DEBUG on the USB.
 # Sets Blu-ray to all regions (A+B+C) and optionally DVD to a chosen region.
 #
@@ -23,11 +23,12 @@ if [ -f "$USB/dvd_region.txt" ]; then
 fi
 
 log() { echo "$1" >> "$LOG"; }
+checkpoint() { echo "$1" >> "$LOG"; sync; }
 
-echo "=== UB450 Region-Free v5.5 ===" > "$LOG"
+echo "=== UB450 Region-Free v5.6 ===" > "$LOG"
 log "Started: $(date)"
 log "Kernel: $(uname -a 2>/dev/null)"
-log "Target: DVD=$DVD_TARGET, BD=$BD_TARGET"
+checkpoint "Target: DVD=$DVD_TARGET, BD=$BD_TARGET"
 
 if [ ! -f "$CONF" ]; then
     log "ERROR: $CONF not found"
@@ -134,7 +135,7 @@ fi
 
 DVD_HEX=$(read_byte "$CONF" $DVD_VAL_OFF)
 BD_HEX=$(read_byte "$CONF" $BD_VAL_OFF)
-log "Before: DVD=0x$DVD_HEX, BD=0x$BD_HEX"
+checkpoint "Before: DVD=0x$DVD_HEX, BD=0x$BD_HEX"
 
 # --- Restore mode (checked before backup so we don't overwrite the original) ---
 
@@ -203,7 +204,7 @@ if [ -n "$DVD_TARGET" ]; then
     printf "\\x$(printf '%02x' $DVD_TARGET)" | dd of="$CONF" bs=1 seek=$DVD_VAL_OFF conv=notrunc 2>/dev/null
 fi
 sync
-log "Config write done: DVD=$DVD_TARGET at $DVD_VAL_OFF, BD=$BD_TARGET at $BD_VAL_OFF"
+checkpoint "Config write done: DVD=$DVD_TARGET at $DVD_VAL_OFF, BD=$BD_TARGET at $BD_VAL_OFF"
 
 # --- EEPROM direct write (DVD region hardware source) ---
 # The firmware reads DVD region from EEPROM at offset 0x200 on every boot,
@@ -212,6 +213,7 @@ log "Config write done: DVD=$DVD_TARGET at $DVD_VAL_OFF, BD=$BD_TARGET at $BD_VA
 # we try known device files. BD region has no EEPROM copy — config file is enough.
 
 EEPROM_OK=0
+checkpoint "STEP: Starting EEPROM scan"
 if [ -n "$DVD_TARGET" ]; then
     # Read the current DVD region from config file — the EEPROM value must match this,
     # since the firmware loads DVD from EEPROM into config at boot.
@@ -254,12 +256,13 @@ if [ -n "$DVD_TARGET" ]; then
     ls /dev/eeprom* /dev/mtd* >> "$LOG" 2>&1 || true
 
     if [ -z "$EEPROM_CANDIDATES" ]; then
-        log "No EEPROM/MTD/I2C devices found at all"
+        checkpoint "No EEPROM/MTD/I2C devices found at all"
     else
-        log "EEPROM candidates:$EEPROM_CANDIDATES"
+        checkpoint "EEPROM candidates:$EEPROM_CANDIDATES"
     fi
 
     for EEPROM_DEV in $EEPROM_CANDIDATES; do
+        checkpoint "STEP: Trying EEPROM device $EEPROM_DEV"
 
         # Read 4 bytes at offset 0x200 — the firmware stores DVD region here
         EEPROM_RAW=$(timeout 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=4 2>/dev/null)
@@ -293,6 +296,7 @@ if [ -n "$DVD_TARGET" ]; then
             ;; esac
             log "EEPROM $EEPROM_DEV: matches config DVD region ($EEPROM_DEC) — this is the DVD EEPROM source"
 
+            checkpoint "STEP: EEPROM match found at $EEPROM_DEV — preparing to write"
             # Back up original EEPROM value
             if [ ! -f "$USB/.eeprom_dvd_backup.bin" ]; then
                 timeout 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=4 of="$USB/.eeprom_dvd_backup.bin" 2>/dev/null
@@ -300,10 +304,12 @@ if [ -n "$DVD_TARGET" ]; then
                 log "EEPROM backup saved"
             fi
 
+            checkpoint "STEP: Writing DVD=$DVD_TARGET to EEPROM $EEPROM_DEV at 0x200"
             # Write new DVD region as a 4-byte LE value (firmware reads 4 bytes, uses low byte)
             printf "\\x$(printf '%02x' $DVD_TARGET)\\x00\\x00\\x00" | \
                 timeout 3 dd of="$EEPROM_DEV" bs=1 seek=512 conv=notrunc 2>/dev/null
             sync
+            checkpoint "STEP: EEPROM write + sync completed"
 
             # Verify
             EEPROM_CHECK=$(timeout 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
@@ -312,9 +318,9 @@ if [ -n "$DVD_TARGET" ]; then
             fi
             if [ "$EEPROM_CHECK" = "$(printf '%02x' $DVD_TARGET)" ]; then
                 EEPROM_OK=1
-                log "EEPROM write SUCCEEDED: DVD=$DVD_TARGET at $EEPROM_DEV offset 0x200"
+                checkpoint "EEPROM write SUCCEEDED: DVD=$DVD_TARGET at $EEPROM_DEV offset 0x200"
             else
-                log "EEPROM write FAILED to verify (got 0x$EEPROM_CHECK, expected $(printf '%02x' $DVD_TARGET))"
+                checkpoint "EEPROM write FAILED to verify (got 0x$EEPROM_CHECK, expected $(printf '%02x' $DVD_TARGET))"
                 log "Device may be read-only or need mtd_debug/flash_erase for write"
             fi
             break
@@ -334,6 +340,7 @@ if [ -n "$DVD_TARGET" ]; then
 fi
 
 # --- Verify ---
+checkpoint "STEP: Verifying config values"
 
 BD_AFTER=$(read_byte "$CONF" $BD_VAL_OFF)
 DVD_AFTER=$(read_byte "$CONF" $DVD_VAL_OFF)
@@ -363,6 +370,7 @@ fi
 
 # Run diagnostics automatically if diag.sh is on the USB
 if [ -f "$USB/diag.sh" ]; then
-    log "Running diag.sh to collect device data"
+    checkpoint "STEP: Running diag.sh"
     sh "$USB/diag.sh"
 fi
+checkpoint "STEP: All done"

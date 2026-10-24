@@ -16,7 +16,7 @@ Tested on a DP-UB450GN (Australia) with firmware V127 - Sep 10, 2026. See "Does 
 **Update your player's firmware first** (Setup → System → Firmware Update). The region change might not survive a future update, so get that out of the way before you start.
 
 - **DP-UB450 or DP-UB150** (tested on UB450GN, Australia). May also work on UB154, UB159. See "Does this work on other models?" below
-- **A USB drive** (any size, formatted as FAT32 — most USB drives already are)
+- **A USB drive** (any size, formatted as **FAT32** — most USB drives already are)
 - **A computer** (Mac, Windows with WSL, or Linux)
 - **Any Blu-ray disc** (to trigger the process — the region doesn't matter, use one you already own)
 - **The firmware update file** (`PANA_DVD.FRM`) — download it from the manufacturer's support site for the UB450 or UB150. You need the file, not to install the update
@@ -84,13 +84,13 @@ USB drive (root)
 1. **Turn off** the player completely (not standby — press and hold power until it shuts down)
 2. **Plug the USB drive** into the player's USB port (front or rear — use whichever your model has)
 3. **Turn on** the player and wait for the home screen (no disc yet)
-4. **Insert YOUR REGION Blu-ray disc** — it must be a Blu-ray, not a DVD. Most commercial Blu-rays work. The disc triggers the BD-Java runtime, which loads the region-change script from the USB
+4. **Insert YOUR REGION Blu-ray disc** — it must be a Blu-ray, not a DVD. Most big studios commercial Blu-rays work (Disney, Warner, Universal, etc) but boutique studio (Arrow, Criterion, etc) DO NOT work. Check on your computer if you have the drive as the working disc must have a BDMV/JAR/ folder with jar files if it uses BD-Java. The disc triggers the BD-Java runtime, which loads the region-change script from the USB.
 5. **(Very important) Wait for the screen to go blank for a moment** — this means the player is loading the script from USB. If the disc menu appears without a blank screen, the script didn't trigger — try a different disc. 
 **(Critical) You need the disc's menu to load to run the script, not the player's menu. The disc menu is the menu that you can play the movie, set the audio/subtitle, watch extras, etc. If the disc menu did not load, you need to open it manually e.g. press "Top Menu" button on the remote.**
 6. **Wait for the disc menu to fully load**, then wait another **10 seconds**. The region change happens in the background while the disc loads. 
 7. **Power off** the player with the remote
 8. **Remove the USB drive**
-9.  **Power on** the player
+9. **Power on** the player
 
 Your Blu-ray region is now unlocked (all regions), and DVD is set to US (region 1) by default. Check `region_log.txt` on the USB for details.
 
@@ -186,6 +186,8 @@ No proprietary code is included in this repository. The build script operates on
 Region code values confirmed against the [Blu-ray specification (PSR 20)](https://videolan.videolan.me/libbluray/player__settings_8h.html) via libbluray and the [DVD region code standard](https://en.wikipedia.org/wiki/DVD_region_code). The BD-Java debug mode is a standard feature of the CVM runtime used in MediaTek-based Blu-ray players.
 
 ## Changelog
+
+**v5.6** — Added diagnostic checkpoints. Every key step now syncs a checkpoint to the log on the USB, so if the player kills the script early, the log shows exactly which step it reached. This helps debug players where the region change doesn't take effect. Also clarified that the trigger disc must use BD-Java (most major studio Blu-rays do; some boutique labels do not).
 
 **v5.5** — Optimised for speed. Removed the web CLI probe (port 8383 is never available during disc playback — it was wasting 1–2 seconds on every run). Removed the secondary config file write. The config write now finishes in under a second, so Blu-ray region-free is done before the player can kill the script.
 
