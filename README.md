@@ -30,11 +30,17 @@ Tested on a DP-UB450GN (Australia) with firmware V127 - Sep 10, 2026. See "Does 
 
 ### 1. Download
 
-Download the latest release zip from the [Releases page](https://github.com/hemmachat/ub450-region-free/releases) and unzip it.
+Clone or download the repository:
+
+```sh
+git clone https://github.com/hemmachat/ub450-region-free.git
+```
+
+Or click **Code → Download ZIP** on the [repository page](https://github.com/hemmachat/ub450-region-free) and unzip it.
 
 ### 2. Build BDJ.jar
 
-Open a terminal (command prompt on Windows), go to the `build/` folder inside the unzipped folder from step 1, and run:
+Open a terminal (command prompt on Windows), go to the `build/` folder and run:
 
 ```sh
 python3 build.py /path/to/PANA_DVD.FRM
@@ -54,7 +60,7 @@ You should see output ending with `Done.` and a SHA-256 hash.
 
 Format your USB drive as **FAT32** (most USB drives already are).
 
-Copy these files from the `usb-files/` folder (inside the folder you unzipped in step 1) to the **root** of the USB drive:
+Copy these files from the `usb-files/` folder to the **root** of the USB drive:
 
 - `BDJ_DEBUG` (an empty file — don't open or edit it)
 - `BDJ.jar` (about 1.2 MB — the file you built in step 2)
