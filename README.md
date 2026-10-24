@@ -59,6 +59,7 @@ Copy these files from the `usb-files/` folder (inside the folder you unzipped in
 - `BDJ_DEBUG` (an empty file — don't open or edit it)
 - `BDJ.jar` (about 1.2 MB — the file you built in step 2)
 - `run.sh` (the region-change script)
+- `dvd_region.txt` (optional — edit the number on line 1 to choose your DVD region; defaults to 1 = US if missing)
 - `diag.sh` (optional — diagnostics, only needed if something goes wrong)
 
 The USB drive should look like this:
@@ -68,7 +69,8 @@ USB drive (root)
 ├── BDJ_DEBUG
 ├── BDJ.jar
 ├── run.sh
-└── diag.sh  (optional)
+├── dvd_region.txt  (optional — edit to change DVD region)
+└── diag.sh         (optional)
 ```
 
 ### 4. Run it

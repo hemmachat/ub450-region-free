@@ -1,0 +1,13 @@
+1
+# DVD region — change the number on the first line.
+# Only the first line is read; the rest is ignored.
+#
+# 0 = Region-free (some older discs may reject this)
+# 1 = US, Canada
+# 2 = Europe, Japan
+# 3 = SE Asia, Korea, Taiwan
+# 4 = Australia, Oceania, Latin America
+# 5 = Russia, India, Africa
+# 6 = China
+#
+# Delete this file to keep the default (1 = US).
