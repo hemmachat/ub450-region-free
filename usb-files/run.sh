@@ -1,5 +1,5 @@
 #!/bin/sh
-# DP-UB450/UB150 Region-Free Script v5.6
+# DP-UB450/UB150 Region-Free Script v5.7
 # Runs automatically when a Blu-ray disc is loaded with BDJ_DEBUG on the USB.
 # Sets Blu-ray to all regions (A+B+C) and optionally DVD to a chosen region.
 #
@@ -25,7 +25,7 @@ fi
 log() { echo "$1" >> "$LOG"; }
 checkpoint() { echo "$1" >> "$LOG"; sync; }
 
-echo "=== UB450 Region-Free v5.6 ===" > "$LOG"
+echo "=== UB450 Region-Free v5.7 ===" > "$LOG"
 log "Started: $(date)"
 log "Kernel: $(uname -a 2>/dev/null)"
 checkpoint "Target: DVD=$DVD_TARGET, BD=$BD_TARGET"
@@ -200,11 +200,22 @@ fi
 # before the EEPROM scan.
 
 printf "\\x$(printf '%02x' $BD_TARGET)" | dd of="$CONF" bs=1 seek=$BD_VAL_OFF conv=notrunc 2>/dev/null
+BD_WRITE_RC=$?
 if [ -n "$DVD_TARGET" ]; then
     printf "\\x$(printf '%02x' $DVD_TARGET)" | dd of="$CONF" bs=1 seek=$DVD_VAL_OFF conv=notrunc 2>/dev/null
+    DVD_WRITE_RC=$?
 fi
 sync
-checkpoint "Config write done: DVD=$DVD_TARGET at $DVD_VAL_OFF, BD=$BD_TARGET at $BD_VAL_OFF"
+# Verify the write by reading back
+BD_READBACK=$(read_byte "$CONF" $BD_VAL_OFF)
+DVD_READBACK=$(read_byte "$CONF" $DVD_VAL_OFF)
+BD_EXPECTED_HEX=$(printf '%02x' $BD_TARGET)
+DVD_EXPECTED_HEX=$(printf '%02x' $DVD_TARGET)
+if [ "$BD_READBACK" = "$BD_EXPECTED_HEX" ] && [ "$DVD_READBACK" = "$DVD_EXPECTED_HEX" ]; then
+    checkpoint "Config write VERIFIED: DVD=0x$DVD_READBACK (rc=$DVD_WRITE_RC), BD=0x$BD_READBACK (rc=$BD_WRITE_RC)"
+else
+    checkpoint "Config write MISMATCH: DVD=0x$DVD_READBACK (wanted 0x$DVD_EXPECTED_HEX, rc=$DVD_WRITE_RC), BD=0x$BD_READBACK (wanted 0x$BD_EXPECTED_HEX, rc=$BD_WRITE_RC)"
+fi
 
 # --- EEPROM direct write (DVD region hardware source) ---
 # The firmware reads DVD region from EEPROM at offset 0x200 on every boot,
