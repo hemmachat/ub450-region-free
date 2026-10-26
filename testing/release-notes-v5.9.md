@@ -13,4 +13,6 @@ Region-free is still not possible on stock firmware: the player enforces one Blu
 
 `us/` and `uk/` are test packages for a US and a UK reporter. They write one valid region value (2 on US, 1 on UK) and ask for three runs, to find out whether a valid value survives a power cycle. Earlier "region reverts" reports all used 7, which this player rejects, so they could not answer that question. These folders do not include `BDJ.jar` — the testers use the jar from their earlier runs. They are not needed for normal use.
 
-SHA-256: `be60204472170280159c4e0c98264b1e2364128afb815a478a4df41cae12a5f9`
+Updated 27 Oct 2026: the `us/` and `uk/` instructions now note that `REGION_FREE_OK.txt` can be missing after a successful write (the `Config write VERIFIED` line is what counts) and that the first run after a boot is the one to read (`Started:` time). The README now says `region_log.txt` keeps only the last run, and `diag.sh` also logs read-only memory-access facts (bdpprog fds, `/proc/<pid>/mem`, `/dev/mem`, the config inode). The region write itself is unchanged.
+
+SHA-256: `0524747de87daac7fd51c7618f4efc5eb53114d9384ebc8e2d02c36876249827`
