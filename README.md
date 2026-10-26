@@ -121,6 +121,31 @@ The file `region_log.txt` has a full log of what happened, including your origin
 
 Insert a disc from the region you set: with `bd_region.txt` = `1`, a region A disc; with `2`, a region B disc. A disc from any other region will show the region error (that is expected).
 
+## Extra steps for US and UK players
+
+Some US, UK and EU players show the old region again after a reboot. Every report so far used `7`, which this player does not accept, so we still do not know whether a normal value (1, 2 or 4) survives a power cycle. If you have a US DP-UB450P, or a UK/EU unit, and a disc from another region, this test answers it.
+
+The latest [release](https://github.com/hemmachat/ub450-region-switch/releases/latest) includes two ready-made packages:
+
+- `us/` writes `2` (Region B). Use it on a US player, which is Region A.
+- `uk/` writes `1` (Region A). Use it on a UK/EU player, which is Region B.
+
+Copy the contents of the matching folder to the root of your USB stick, next to the `BDJ.jar` you built in step 2. Both packages skip the DVD change, so nothing else is touched. The folder's `TEST-INSTRUCTIONS.txt` has the same steps in plain language.
+
+1. **Run 1 — write the value.** Unplug the player's power cord, insert the USB, plug the player back in and turn it on. Insert a BD-J disc and wait about 30 seconds (a region message instead of the disc menu is normal). Rename `region_log.txt` on the USB to `log-1.txt`.
+2. **Run 2 — normal power-off.** Press the power button on the remote and wait until the player is off. Turn it on, insert the disc again, wait about 30 seconds. Open `region_log.txt` and find the line starting with `Before:`. Rename the file to `log-2.txt`.
+3. **Run 3 — only if Run 2 shows the old value.** Insert the disc and wait about 40 seconds, then unplug the power cord instead of using the remote. Plug it back in, insert the disc, wait about 30 seconds, and read the `Before:` line again. Rename the file to `log-3.txt`.
+
+What the result means:
+
+- `BD=0x02` after Run 2 on a US player, or `BD=0x01` on a UK player: the value survived a normal power cycle. Try a disc from the other region.
+- Only Run 3 keeps it: the player's normal shutdown is rewriting the file.
+- Neither keeps it: the player rewrites the value at startup. The logs still tell us how, so please send them.
+
+Send back: `log-1.txt`, `log-2.txt`, `log-3.txt` if you did Run 3, `REGION_FREE_OK.txt` or `REGION_FREE_FAILED.txt`, your model and firmware version, and what the other-region disc did (a photo of any message helps). Open a [GitHub issue](https://github.com/hemmachat/ub450-region-switch/issues) and attach them, or paste the `Before:` lines.
+
+Optional diagnostics: rename `run.sh` to `run-region.sh`, rename `diag.sh` to `run.sh`, and do one more run. The USB gets a `diag_output` folder — send that too. It only reads.
+
 ## How to undo it
 
 If you ever want to go back to your original region:
@@ -159,7 +184,7 @@ Unknown. If a firmware update resets the region, repeat the process.
 
 ### The region went back to the old value after a reboot
 
-v5.7 and later log `Config write VERIFIED` when the new value is in the config file. If the next run's `Before:` line shows the old value, the player changed it after the write. This happens on some UK, US and EU units (confirmed on a UK player, 26 Oct 2026) and is under investigation. Every report so far used `7`, which the player does not accept, so it is still unknown whether a normal value (1, 2 or 4) survives — see [Help test on a US or UK player](#help-test-on-a-us-or-uk-player). Send `region_log.txt` and `.config_dump.bin` from both runs, plus your model and firmware version. Also copy `diag.sh` over `run.sh` on the USB and run once more — it only reads — and send the `diag_output` folder it creates.
+v5.7 and later log `Config write VERIFIED` when the new value is in the config file. If the next run's `Before:` line shows the old value, the player changed it after the write. This happens on some UK, US and EU units (confirmed on a UK player, 26 Oct 2026) and is under investigation. Every report so far used `7`, which the player does not accept, so it is still unknown whether a normal value (1, 2 or 4) survives — see [Extra steps for US and UK players](#extra-steps-for-us-and-uk-players). Send `region_log.txt` and `.config_dump.bin` from both runs, plus your model and firmware version. Also copy `diag.sh` over `run.sh` on the USB and run once more — it only reads — and send the `diag_output` folder it creates.
 
 ### An older version wrote `7` — why did a disc play then?
 
@@ -196,31 +221,6 @@ The script checks that the config file on your player matches the expected forma
 DVD regions are now supported as of v5. The player stores the DVD region in EEPROM as well as the config file, so the script writes to both. By default it sets DVD to region 1 (US). To choose a different region, put a `dvd_region.txt` file on the USB with the region number (0–6).
 
 If the DVD region didn't change after running the script, your player's EEPROM device might be different. Check the `diag_output/` folder on the USB and open an issue with it — this will help identify the right device.
-
-## Help test on a US or UK player
-
-Some US, UK and EU players show the old region again after a reboot. Every report so far used `7`, which this player does not accept, so we still do not know whether a normal value (1, 2 or 4) survives a power cycle. If you have a US DP-UB450P, or a UK/EU unit, and a disc from another region, this test answers it.
-
-The latest [release](https://github.com/hemmachat/ub450-region-switch/releases/latest) includes two ready-made packages:
-
-- `us/` writes `2` (Region B). Use it on a US player, which is Region A.
-- `uk/` writes `1` (Region A). Use it on a UK/EU player, which is Region B.
-
-Copy the contents of the matching folder to the root of your USB stick, next to the `BDJ.jar` you built in step 2. Both packages skip the DVD change, so nothing else is touched. The folder's `TEST-INSTRUCTIONS.txt` has the same steps in plain language.
-
-1. **Run 1 — write the value.** Unplug the player's power cord, insert the USB, plug the player back in and turn it on. Insert a BD-J disc and wait about 30 seconds (a region message instead of the disc menu is normal). Rename `region_log.txt` on the USB to `log-1.txt`.
-2. **Run 2 — normal power-off.** Press the power button on the remote and wait until the player is off. Turn it on, insert the disc again, wait about 30 seconds. Open `region_log.txt` and find the line starting with `Before:`. Rename the file to `log-2.txt`.
-3. **Run 3 — only if Run 2 shows the old value.** Insert the disc and wait about 40 seconds, then unplug the power cord instead of using the remote. Plug it back in, insert the disc, wait about 30 seconds, and read the `Before:` line again. Rename the file to `log-3.txt`.
-
-What the result means:
-
-- `BD=0x02` after Run 2 on a US player, or `BD=0x01` on a UK player: the value survived a normal power cycle. Try a disc from the other region.
-- Only Run 3 keeps it: the player's normal shutdown is rewriting the file.
-- Neither keeps it: the player rewrites the value at startup. The logs still tell us how, so please send them.
-
-Send back: `log-1.txt`, `log-2.txt`, `log-3.txt` if you did Run 3, `REGION_FREE_OK.txt` or `REGION_FREE_FAILED.txt`, your model and firmware version, and what the other-region disc did (a photo of any message helps). Open a [GitHub issue](https://github.com/hemmachat/ub450-region-switch/issues) and attach them, or paste the `Before:` lines.
-
-Optional diagnostics: rename `run.sh` to `run-region.sh`, rename `diag.sh` to `run.sh`, and do one more run. The USB gets a `diag_output` folder — send that too. It only reads.
 
 ## How it works
 
