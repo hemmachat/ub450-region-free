@@ -245,7 +245,34 @@ BDPID=$(ps | grep bdpprog | grep -v grep | head -1 | awk '{print $1}')
 if [ -n "$BDPID" ]; then
     log "bdpprog PID: $BDPID"
     ls -la /proc/$BDPID/fd/ >> "$LOG" 2>&1
+    # Persistence work: is the config held open, and is the RAM image reachable?
+    log "proc entries: $(ls /proc/$BDPID 2>/dev/null | tr '\n' ' ')"
+    grep -E '^(Name|State|Uid|TracerPid|NoNewPrivs)' /proc/$BDPID/status >> "$LOG" 2>&1
+    for f in /proc/$BDPID/fd/*; do
+        tgt=$(readlink "$f" 2>/dev/null)
+        case "$tgt" in
+            *config_file*) log "fd ${f##*/} -> $tgt [$(grep -h '^flags' "/proc/$BDPID/fdinfo/${f##*/}" 2>/dev/null)]";;
+        esac
+    done
+    for p in /proc/[0-9]*/comm; do
+        [ "$(cat "$p" 2>/dev/null)" = bdpprog ] && log "bdpprog instance: $p"
+    done
+    # V127 image-pointer slot 0x011a5ebc (18505404); V113 0x011c6024 (18636836).
+    for addr in 18505404 18636836; do
+        h=$(tmo 3 dd if=/proc/$BDPID/mem bs=1 skip=$addr count=4 2>>"$LOG" | hexdump -v -e '1/1 "%02x"' 2>/dev/null)
+        log "mem probe $addr: [${h:-unreadable}]"
+    done
 fi
+
+# 7b. File ownership, mounts and tools (persistence work)
+log ""
+log "--- Config file, mounts, tools ---"
+log "identity: $(id 2>/dev/null)"
+log "conf: $(ls -li /acfg/config_file_global.txt 2>&1)"
+log "tools: chmod=$(command -v chmod 2>/dev/null) kill=$(command -v kill 2>/dev/null) reboot=$(command -v reboot 2>/dev/null)"
+log "yama: $(cat /proc/sys/kernel/yama/ptrace_scope 2>/dev/null)"
+ls -l /dev/mem /dev/kmem /dev/drvcli >> "$LOG" 2>&1
+log "mounts: $(grep -E 'sda1|/acfg|ubi_boot' /proc/mounts 2>/dev/null | tr '\n' ' ')"
 
 # 8. ACFG settings dump via settings command (if available)
 log ""

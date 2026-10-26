@@ -11,7 +11,8 @@ bd_region.txt       First line: 1 = Region A, 2 = Region B, 4 = Region C.
                     Current value: 1 (Region A).
 dvd_region.txt      First line: 0 = region-free, 1 = US, 2 = Europe, 3 = SE Asia,
                     4 = Australia, 5 = Russia/India, 6 = China.
-                    Current value: 0 (DVD region-free).
+                    Current value: 1 (US). Make the file empty to skip the
+                    DVD change and leave the DVD byte alone.
 diag.sh             Read-only diagnostics. Copy over run.sh to run it.
 run.validation.sh   Old read/write tester used for the Oct 2026 tests; its logs
                     are validation_log_*.txt and config_run*.bin.
@@ -38,4 +39,5 @@ JAR folder is missing or empty, the disc cannot trigger the script. MakeMKV or
 any Blu-ray disc tool shows the same folders if you have no drive.
 
 To go back to Region B later: set the first line of bd_region.txt to 2 and run once more.
-The player is currently at BD=07 (Region B fallback); this run writes 01 (Region A).
+The first line of each file is what the next run writes; change it on the computer
+before running.

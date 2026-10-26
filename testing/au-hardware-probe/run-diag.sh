@@ -1,0 +1,401 @@
+#!/bin/sh
+# DVD Region Diagnostic — collects data to fix the DVD region change.
+# Runs on the player via the same BD-Java debug mode as run.sh.
+# Saves everything to USB under diag_output/.
+
+USB=/mnt/sda1
+OUT=$USB/diag_output
+LOG=$OUT/diag_log.txt
+
+mkdir -p "$OUT"
+echo "=== DVD Region Diagnostic ===" > "$LOG"
+echo "Started: $(date)" >> "$LOG"
+
+log() { echo "$1" >> "$LOG"; }
+
+# No `timeout` on any UB450 rootfs (AU/UK/US images), which silently skipped
+# every EEPROM/MTD dump. `<&0` keeps piped stdin (async lists get /dev/null).
+if command -v timeout >/dev/null 2>&1; then
+    tmo() { timeout "$@"; }
+elif command -v sleep >/dev/null 2>&1; then
+    tmo() {
+        _tmo_t="$1"; shift
+        "$@" <&0 & _tmo_p=$!
+        ( sleep "$_tmo_t"; kill -9 "$_tmo_p" 2>/dev/null ) >/dev/null 2>&1 & _tmo_w=$!
+        wait "$_tmo_p" 2>/dev/null; _tmo_rc=$?
+        kill -9 "$_tmo_w" 2>/dev/null
+        wait "$_tmo_w" 2>/dev/null
+        return "$_tmo_rc"
+    }
+else
+    tmo() { shift; "$@"; }
+fi
+
+# Bytes from a file/device as hex. The player rootfs has no `od` at all
+# (AU/UK/US images), so fall back to hexdump, which it does ship.
+hx() { # $1 file, $2 skip, $3 count
+    _hx=$(tmo 3 dd if="$1" bs=1 skip="$2" count="$3" 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+    [ -n "$_hx" ] || _hx=$(tmo 3 dd if="$1" bs=1 skip="$2" count="$3" 2>/dev/null | hexdump -v -e '1/1 "%02x"' 2>/dev/null)
+    printf '%s' "$_hx"
+}
+
+# Byte offset of a key in the config file. The player rootfs has no `strings`
+# and no `od` (AU/UK/US images), so search a hex dump via hexdump — same
+# fallback as run.sh.
+keyoff() {
+    _kf=$(od -v -An -tx1 < "$1" 2>/dev/null | tr -cd '0-9a-f')
+    [ -n "$_kf" ] || _kf=$(hexdump -v -e '1/1 "%02x"' < "$1" 2>/dev/null)
+    _kk=$(printf '%s' "$2" | od -v -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+    [ -n "$_kk" ] || _kk=$(printf '%s' "$2" | hexdump -v -e '1/1 "%02x"' 2>/dev/null)
+    _kb="${_kf%%"$_kk"*}"
+    [ -n "$_kk" ] && [ -n "$_kf" ] && [ "$_kb" != "$_kf" ] || return 1
+    echo $(( ${#_kb} / 2 ))
+}
+
+# 0. System info
+log ""
+log "--- System info ---"
+log "Kernel: $(uname -a 2>/dev/null)"
+log "CPU: $(grep -m1 'model name\|Processor\|Hardware' /proc/cpuinfo 2>/dev/null | head -1)"
+log "Board: $(cat /proc/device-tree/model 2>/dev/null || grep -m1 'Hardware' /proc/cpuinfo 2>/dev/null)"
+cat /etc/version >> "$LOG" 2>/dev/null
+cat /etc/firmware_version >> "$LOG" 2>/dev/null
+ls -la /dev/eeprom* /dev/mtd[0-9]* >> "$LOG" 2>&1
+log ""
+log "--- / (acfg and var are symlinks where present) ---"
+ls -la / >> "$LOG" 2>&1
+
+# Model name and country from config
+MODEL_OFF=$(keyoff /acfg/config_file_global.txt IDX_GB_PTT_MODEL_NAME)
+if [ -n "$MODEL_OFF" ]; then
+    MODEL_VOFF=$((MODEL_OFF + 36))
+    MODEL_VAL=$(dd if=/acfg/config_file_global.txt bs=1 skip=$MODEL_VOFF count=32 2>/dev/null | tr -d '\000' | head -1)
+    log "Model: $MODEL_VAL"
+fi
+COUNTRY_OFF=$(keyoff /acfg/config_file_global.txt IDX_GB_PTT_COUNTRYCODE)
+if [ -n "$COUNTRY_OFF" ]; then
+    COUNTRY_VOFF=$((COUNTRY_OFF + 36))
+    COUNTRY_VAL=$(hx /acfg/config_file_global.txt $COUNTRY_VOFF 4)
+    log "Country code: $COUNTRY_VAL"
+fi
+
+# Current region values from config file
+log ""
+log "--- Current regions (config file) ---"
+DVD_OFF=$(keyoff /acfg/config_file_global.txt IDX_GB_PTT_REGIONCODE)
+if [ -n "$DVD_OFF" ]; then
+    DVD_VOFF=$((DVD_OFF + 36))
+    DVD_VAL=$(hx /acfg/config_file_global.txt $DVD_VOFF 1)
+    DVD_DEC=$(printf '%d' "0x${DVD_VAL:-ff}" 2>/dev/null)
+    log "DVD region: $DVD_DEC (0x$DVD_VAL)  [0=free 1=US 2=Europe 3=SE-Asia 4=AU 5=Russia 6=China]"
+fi
+BD_OFF=$(keyoff /acfg/config_file_global.txt IDX_GB_PTT_BDREGIONCODE)
+if [ -n "$BD_OFF" ]; then
+    BD_VOFF=$((BD_OFF + 36))
+    BD_VAL=$(hx /acfg/config_file_global.txt $BD_VOFF 1)
+    BD_DEC=$(printf '%d' "0x${BD_VAL:-ff}" 2>/dev/null)
+    log "BD region:  $BD_DEC (0x$BD_VAL)  [1=A 2=B 4=C 7=all]"
+fi
+IR_OFF=$(keyoff /acfg/config_file_global.txt IDX_GB_PTT_IR_REGIONCODE)
+if [ -n "$IR_OFF" ]; then
+    IR_VOFF=$((IR_OFF + 36))
+    IR_VAL=$(hx /acfg/config_file_global.txt $IR_VOFF 1)
+    IR_DEC=$(printf '%d' "0x${IR_VAL:-ff}" 2>/dev/null)
+    log "IR region:  $IR_DEC (0x$IR_VAL)"
+fi
+
+# Current live region from the player (via CLI — these are the values the player is actually using)
+log ""
+log "--- Current regions (player live) ---"
+LIVE_REGION=""
+# Try cliprog first (direct IPC to bdpprog)
+if [ -x /usr/local/bin/cliprog ]; then
+    LIVE_REGION=$(tmo 3 cliprog app.acfg.rg 2>/dev/null)
+    [ -n "$LIVE_REGION" ] && log "cliprog app.acfg.rg: $LIVE_REGION"
+fi
+# Try Web CLI if cliprog didn't work
+if [ -z "$LIVE_REGION" ] && [ -x /usr/bin/curl ]; then
+    CLI_RESP=$(curl -s --connect-timeout 2 "http://127.0.0.1:8383/config.cgi?page=get_log_and_set_cli_result.html&flag=cli_cmd&cli_value=app.acfg.rg" 2>/dev/null)
+    LIVE_REGION=$(echo "$CLI_RESP" | grep "region code")
+    [ -n "$LIVE_REGION" ] && log "Web CLI app.acfg.rg: $LIVE_REGION"
+fi
+if [ -z "$LIVE_REGION" ]; then
+    log "Could not read live region (CLI not reachable) — config file values shown above"
+fi
+
+# 1. All config files under /acfg/
+log ""
+log "--- /acfg/ files ---"
+ls -la /acfg/ >> "$LOG" 2>&1
+for f in /acfg/config_file*.txt; do
+    if [ -f "$f" ]; then
+        base=$(basename "$f")
+        cp "$f" "$OUT/$base" 2>/dev/null
+        log "Copied $f ($(wc -c < "$f" | tr -d ' ') bytes)"
+        # Check if this file has the DVD region key
+        if grep -q "IDX_GB_PTT_REGIONCODE" "$f" 2>/dev/null; then
+            log "  -> HAS IDX_GB_PTT_REGIONCODE"
+        else
+            log "  -> no IDX_GB_PTT_REGIONCODE"
+        fi
+        if grep -q "IDX_GB_PTT_BDREGIONCODE" "$f" 2>/dev/null; then
+            log "  -> HAS IDX_GB_PTT_BDREGIONCODE"
+        fi
+    fi
+done
+
+# 2. MTD partition table and mounts
+log ""
+log "--- /proc/mtd ---"
+cat /proc/mtd >> "$LOG" 2>&1
+log ""
+log "--- /proc/mounts ---"
+cat /proc/mounts >> "$LOG" 2>&1
+
+# 3. EEPROM / MTD devices
+log ""
+log "--- EEPROM and MTD devices ---"
+ls -la /dev/eeprom* >> "$LOG" 2>&1
+ls -la /dev/mtd[0-9]* >> "$LOG" 2>&1
+
+# Dump small EEPROM devices (< 64KB) to USB
+for dev in /dev/eeprom_0 /dev/eeprom_3; do
+    if [ -e "$dev" ]; then
+        base=$(basename "$dev")
+        tmo 5 dd if="$dev" of="$OUT/$base.bin" bs=4096 count=16 2>/dev/null
+        sz=$(wc -c < "$OUT/$base.bin" | tr -d ' ')
+        log "Dumped $dev: $sz bytes"
+        # Search for region key in EEPROM
+        if grep -q "IDX_GB_PTT_REGIONCODE" "$OUT/$base.bin" 2>/dev/null; then
+            log "  -> HAS IDX_GB_PTT_REGIONCODE in EEPROM!"
+        fi
+    else
+        log "$dev does not exist"
+    fi
+done
+
+# Dump first 64KB of small MTD devices
+for i in 0 1 2 3 4 5; do
+    dev="/dev/mtd$i"
+    if [ -e "$dev" ]; then
+        tmo 5 dd if="$dev" of="$OUT/mtd${i}.bin" bs=4096 count=16 2>/dev/null
+        sz=$(wc -c < "$OUT/mtd${i}.bin" | tr -d ' ')
+        log "Dumped $dev: $sz bytes"
+        if grep -q "IDX_GB_PTT" "$OUT/mtd${i}.bin" 2>/dev/null; then
+            log "  -> HAS IDX_GB_PTT key in MTD$i!"
+        fi
+    fi
+done
+
+# 4. Web CLI reachability from localhost
+log ""
+log "--- Web CLI (port 8383) ---"
+# Test if the web server is running and reachable from localhost
+if [ -x /usr/bin/curl ]; then
+    resp=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "http://127.0.0.1:8383/" 2>/dev/null)
+    log "curl http://127.0.0.1:8383/ => HTTP $resp"
+    if [ "$resp" = "200" ] || [ "$resp" = "301" ] || [ "$resp" = "302" ]; then
+        log "Web CLI IS reachable from localhost!"
+        # Read current region via CLI
+        curl -s --connect-timeout 2 "http://127.0.0.1:8383/config.cgi?page=get_log_and_set_cli_result.html&flag=cli_cmd&cli_value=app.acfg.rg" > "$OUT/cli_region_read.html" 2>/dev/null
+        log "Sent app.acfg.rg READ query, response saved to cli_region_read.html"
+        # Extract the region values from the HTML response
+        REGION_LINE=$(grep "region code" "$OUT/cli_region_read.html" 2>/dev/null)
+        log "Region response: $REGION_LINE"
+        # Also test other CLI commands
+        curl -s --connect-timeout 2 "http://127.0.0.1:8383/config.cgi?page=get_log_and_set_cli_result.html&flag=cli_cmd&cli_value=drv.hdmi.status" > "$OUT/cli_hdmi_status.html" 2>/dev/null
+        log "Sent drv.hdmi.status, response saved to cli_hdmi_status.html"
+    else
+        log "Web CLI NOT reachable (HTTP $resp or timeout)"
+        # Try other ports too
+        for port in 80 8080 8888; do
+            resp2=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 1 "http://127.0.0.1:$port/" 2>/dev/null)
+            if [ "$resp2" != "000" ]; then
+                log "Port $port responds: HTTP $resp2"
+            fi
+        done
+    fi
+else
+    log "curl not found"
+fi
+
+# 5. Network ports (what's listening)
+log ""
+log "--- Listening ports ---"
+netstat -tlnp >> "$LOG" 2>&1 || ss -tlnp >> "$LOG" 2>&1
+
+# 6. ODD (optical disc drive) info
+log ""
+log "--- ODD device ---"
+ls -la /dev/sr* /dev/cdrom* >> "$LOG" 2>&1
+if [ -e /dev/sr0 ]; then
+    log "ODD exists at /dev/sr0"
+    # Check if sg_raw or similar tools exist
+    which sg_raw >> "$LOG" 2>&1 && log "sg_raw available" || log "no sg_raw"
+    which sdparm >> "$LOG" 2>&1 && log "sdparm available" || log "no sdparm"
+    which hdparm >> "$LOG" 2>&1 && log "hdparm available" || log "no hdparm"
+fi
+
+# 7. Process info
+log ""
+log "--- bdpprog process ---"
+ps | grep bdpprog >> "$LOG" 2>&1
+# Check bdpprog's open file descriptors for CLI socket/pipe
+BDPID=$(ps | grep bdpprog | grep -v grep | head -1 | awk '{print $1}')
+if [ -n "$BDPID" ]; then
+    log "bdpprog PID: $BDPID"
+    ls -la /proc/$BDPID/fd/ >> "$LOG" 2>&1
+    # Persistence work: is the config held open, and is the RAM image reachable?
+    log "proc entries: $(ls /proc/$BDPID 2>/dev/null | tr '\n' ' ')"
+    grep -E '^(Name|State|Uid|TracerPid|NoNewPrivs)' /proc/$BDPID/status >> "$LOG" 2>&1
+    for f in /proc/$BDPID/fd/*; do
+        tgt=$(readlink "$f" 2>/dev/null)
+        case "$tgt" in
+            *config_file*) log "fd ${f##*/} -> $tgt [$(grep -h '^flags' "/proc/$BDPID/fdinfo/${f##*/}" 2>/dev/null)]";;
+        esac
+    done
+    for p in /proc/[0-9]*/comm; do
+        [ "$(cat "$p" 2>/dev/null)" = bdpprog ] && log "bdpprog instance: $p"
+    done
+    # V127 image-pointer slot 0x011a5ebc (18505404); V113 0x011c6024 (18636836).
+    for addr in 18505404 18636836; do
+        h=$(tmo 3 dd if=/proc/$BDPID/mem bs=1 skip=$addr count=4 2>>"$LOG" | hexdump -v -e '1/1 "%02x"' 2>/dev/null)
+        log "mem probe $addr: [${h:-unreadable}]"
+    done
+fi
+
+# 7b. File ownership, mounts and tools (persistence work)
+log ""
+log "--- Config file, mounts, tools ---"
+log "identity: $(id 2>/dev/null)"
+log "conf: $(ls -li /acfg/config_file_global.txt 2>&1)"
+log "tools: chmod=$(command -v chmod 2>/dev/null) kill=$(command -v kill 2>/dev/null) reboot=$(command -v reboot 2>/dev/null)"
+log "yama: $(cat /proc/sys/kernel/yama/ptrace_scope 2>/dev/null)"
+ls -l /dev/mem /dev/kmem /dev/drvcli >> "$LOG" 2>&1
+log "mounts: $(grep -E 'sda1|/acfg|ubi_boot' /proc/mounts 2>/dev/null | tr '\n' ' ')"
+
+# 8. ACFG settings dump via settings command (if available)
+log ""
+log "--- settings list (region-related) ---"
+if [ -x /system/bin/settings ] || [ -x /usr/bin/settings ]; then
+    settings list system 2>/dev/null | grep -i region >> "$LOG" 2>&1
+    settings list system 2>/dev/null | grep -i acfg >> "$LOG" 2>&1
+fi
+
+# 9. Search all of /acfg/ for any file containing the DVD region key
+log ""
+log "--- Search /acfg/ for IDX_GB_PTT_REGIONCODE ---"
+for f in /acfg/*; do
+    if [ -f "$f" ] && grep -q "IDX_GB_PTT_REGIONCODE" "$f" 2>/dev/null; then
+        log "Found in: $f"
+    fi
+done
+
+# 10. Strace: trace what bdpprog reads at the ACFG region path
+# This traces bdpprog for 5 seconds to catch any EEPROM/config file access
+log ""
+log "--- strace bdpprog (5s, file ops) ---"
+if [ -n "$BDPID" ] && [ -x /bin/strace ]; then
+    # tmo runs for the full 5s, then kills strace — no separate sleep/kill.
+    tmo 5 strace -p "$BDPID" -f -e trace=open,openat,read,write,ioctl -o "$OUT/strace_bdpprog.txt" 2>/dev/null
+    sz=$(wc -c < "$OUT/strace_bdpprog.txt" 2>/dev/null | tr -d ' ')
+    log "Strace captured: $sz bytes"
+else
+    log "Strace skipped (no bdpprog PID or no strace)"
+fi
+
+# 11. Read current DVD region byte from config_file.txt (non-global) if it has the key
+log ""
+log "--- config_file.txt region values ---"
+if [ -f /acfg/config_file.txt ]; then
+    OFF=$(keyoff /acfg/config_file.txt IDX_GB_PTT_REGIONCODE)
+    if [ -n "$OFF" ]; then
+        VAL_OFF=$((OFF + 36))
+        VAL=$(hx /acfg/config_file.txt $VAL_OFF 1)
+        log "config_file.txt: IDX_GB_PTT_REGIONCODE at $OFF, value offset $VAL_OFF = 0x$VAL"
+    else
+        log "config_file.txt: IDX_GB_PTT_REGIONCODE not found"
+    fi
+    OFF=$(keyoff /acfg/config_file.txt IDX_GB_PTT_BDREGIONCODE)
+    if [ -n "$OFF" ]; then
+        VAL_OFF=$((OFF + 36))
+        VAL=$(hx /acfg/config_file.txt $VAL_OFF 1)
+        log "config_file.txt: IDX_GB_PTT_BDREGIONCODE at $OFF, value offset $VAL_OFF = 0x$VAL"
+    else
+        log "config_file.txt: IDX_GB_PTT_BDREGIONCODE not found"
+    fi
+fi
+
+# 12. Check offset 0x200 across all EEPROM/MTD devices (firmware reads DVD from here)
+log ""
+log "--- Offset 0x200 scan (DVD region hardware source) ---"
+log "The firmware reads DVD region from EEPROM device 0x15 at offset 0x200 on every boot."
+log "This value overrides the config file. BD has no EEPROM copy."
+log "Scanning /dev/eeprom* and small /dev/mtd* partitions..."
+
+# Get config file DVD region for cross-reference
+DIAG_DVD_OFF=$(keyoff /acfg/config_file_global.txt IDX_GB_PTT_REGIONCODE)
+if [ -n "$DIAG_DVD_OFF" ]; then
+    DIAG_DVD_VOFF=$((DIAG_DVD_OFF + 36))
+    DIAG_CFG_DVD=$(hx /acfg/config_file_global.txt $DIAG_DVD_VOFF 1)
+    DIAG_CFG_DEC=$(printf '%d' "0x${DIAG_CFG_DVD:-ff}" 2>/dev/null)
+    log "Config file DVD region: $DIAG_CFG_DEC (0x$DIAG_CFG_DVD) — EEPROM match expected"
+fi
+
+DIAG_DEVS=""
+for p in /dev/eeprom*; do [ -e "$p" ] && DIAG_DEVS="$DIAG_DEVS $p"; done
+for p in /dev/mtd[0-9]*; do
+    case "$p" in *block*) continue;; esac
+    [ -e "$p" ] && DIAG_DEVS="$DIAG_DEVS $p"
+done
+
+for dev in $DIAG_DEVS; do
+    EEPVAL=$(hx "$dev" 512 4)
+    EEPBYTE=$(echo "$EEPVAL" | head -c 2)
+    EEPDEC=$(printf '%d' "0x${EEPBYTE:-ff}" 2>/dev/null)
+    if [ "$EEPDEC" -le 6 ] 2>/dev/null; then
+        log "$dev offset 0x200: $EEPVAL (first byte=0x$EEPBYTE = $EEPDEC)"
+        if [ -n "$DIAG_CFG_DEC" ] && [ "$EEPDEC" = "$DIAG_CFG_DEC" ]; then
+            log "  -> MATCH — valid DVD region ($EEPDEC) matching config — THIS IS THE DVD EEPROM"
+        else
+            log "  -> VALID DVD region ($EEPDEC) but doesn't match config ($DIAG_CFG_DEC)"
+        fi
+        # Also check IR region at 0x205
+        IRVAL=$(hx "$dev" 517 4)
+        log "  offset 0x205 (IR region): $IRVAL"
+        # Dump wider area
+        hx "$dev" 496 32 > "$OUT/$(basename $dev)_0x1f0.hex" 2>/dev/null
+        log "  (bytes 0x1F0-0x20F saved)"
+    fi
+done
+
+# Compare EEPROM DVD region with config file DVD region
+log ""
+log "--- DVD region: EEPROM vs config file ---"
+if [ -n "$DVD_KEY_OFF" ]; then
+    :
+else
+    DVD_KEY_OFF=$(keyoff /acfg/config_file_global.txt IDX_GB_PTT_REGIONCODE)
+fi
+if [ -n "$DVD_KEY_OFF" ]; then
+    CFG_DVD_OFF=$((DVD_KEY_OFF + 36))
+    CFG_DVD=$(hx /acfg/config_file_global.txt $CFG_DVD_OFF 1)
+    log "Config file DVD region: 0x$CFG_DVD (at offset $CFG_DVD_OFF)"
+    log "If EEPROM and config differ, EEPROM wins at boot."
+fi
+
+# 13. Dump /dev/sg* devices (SCSI generic)
+log ""
+log "--- SCSI generic devices ---"
+ls -la /dev/sg* >> "$LOG" 2>&1
+
+# 14. Kernel modules (check for SCSI/ODD drivers)
+log ""
+log "--- Loaded kernel modules (scsi/odd) ---"
+lsmod 2>/dev/null | grep -iE '(scsi|sr_|cdrom|sg)' >> "$LOG" 2>&1
+cat /proc/modules 2>/dev/null | grep -iE '(scsi|sr_|cdrom|sg)' >> "$LOG" 2>&1
+
+log ""
+log "Finished: $(date)"
+log "Copy diag_output/ from USB and share it."
+echo "DIAGNOSTIC DONE — check diag_output/ on USB" > "$USB/DIAG_DONE.txt"

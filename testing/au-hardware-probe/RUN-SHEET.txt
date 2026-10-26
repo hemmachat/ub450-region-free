@@ -1,0 +1,90 @@
+AU hardware probe — 26 October 2026
+
+Two sessions, about 10 minutes each. It writes only the Blu-ray region byte:
+no DVD, no EEPROM. It knows this player's offsets (key 201, value 237).
+
+ON THE USB ROOT (already prepared on this stick)
+  run.sh          the probe script, not the release one
+  HARDCUT         empty marker — keep the name, do not put anything in it
+  run-diag.sh     only for the optional third session
+  BDJ_DEBUG, BDJ.jar   the trigger
+  run-release.sh  the v5.9 release script, for the restore at the end
+  bd_region.txt = 1, dvd_region.txt empty   used by the restore run
+
+WHICH DISC
+The player is set to region A (0x01) now. The script flips the value on every
+run. On this player the script starts whether the disc plays or shows a region
+message, so one disc is enough:
+
+  All three runs: the region A disc.
+  If no new "run=" line appears in the log after 30 seconds, use the region B
+  disc (Chernobyl) for that run instead.
+
+Expected values: run 1 BEFORE=01 writes 02. Run 2 BEFORE=02 writes 01. Run 3
+BEFORE=01, or 02 if the player wrote the older value back at shutdown.
+
+SESSION 1 — write, then a hard restart
+1. Unplug the player. Insert the USB, plug it back in, power on.
+2. Insert the region A disc. It plays now (the player is on region A) — that
+   is fine, the script starts either way.
+3. Wait 30 seconds. The script writes the Blu-ray byte, then kills bdpprog.
+4. The player will either restart by itself or the picture will freeze.
+   Wait 1 minute. If it is still frozen, unplug the player and plug it back in.
+   If the player restarts with the disc still in, the script can run again;
+   it writes PROBE_DONE first, so the repeat run does nothing and the log
+   from session 1 is kept.
+5. Rename region_log.txt to log-1.txt on the USB, and keep
+   persistence_run1.bin and persistence_log_run1.txt.
+
+SESSION 2 — did it survive, and does a clean shutdown keep it?
+1. Remove HARDCUT and PROBE_DONE from the USB (PROBE_DONE is created by
+   session 1). Leave run.sh as it is.
+2. Power on with the USB in, insert the region A disc (it shows a region
+   message now — that is fine), wait 30 seconds. If no new log, insert the
+   region B disc and wait again.
+3. In region_log.txt read the line "BEFORE=xx TEST=yy run=2".
+   The BEFORE value is what survived the restart.
+4. Rename region_log.txt to log-2.txt, keep persistence_run2.bin and
+   persistence_log_run2.txt.
+5. Power off with the remote (a normal clean shutdown), unplug the cord,
+   plug the USB in, plug the cord back in, power on, insert the region A
+   disc, wait 30 seconds. If no new log, insert the region B disc and wait.
+6. Read BEFORE again, rename to log-3.txt, keep run3.bin and log_run3.txt.
+
+OPTIONAL SESSION 3 — full diagnostic
+Only needed if session 1 shows "mem read failed" or something unexpected.
+1. Rename run.sh to run-probe.sh and run-diag.sh to run.sh.
+2. One normal run: power on with the disc, wait 60 seconds, no HARDCUT.
+3. Keep the diag_output folder. If the log stops early, that is normal —
+   everything we need is collected before the EEPROM scan.
+
+WHAT THE LINES MEAN
+The script always writes the opposite of what it read, so compare the values
+rather than expecting fixed numbers:
+
+  run=2 BEFORE == run=1 TEST
+      the write reached the next boot after the hard restart.
+
+  run=3 BEFORE == run=1 TEST
+      the player wrote its RAM copy back at shutdown (UK/US-like), and the
+      value it wrote was the one it booted with — so the fix is permanent.
+
+  run=3 BEFORE == run=2 TEST
+      the player did not write its RAM copy back (AU-like), so writes already
+      persist and the hard restart is not needed.
+
+Also in log-1.txt:
+  conf inode / conf after write   same number = the write was in place;
+                                  a change later = the player renames the file
+  proc entries                    whether /proc/<bdpprog>/mem exists
+  mem read failed / IMAGE VALID   whether the RAM copy is reachable
+  instances                       more than one bdpprog would explain a missing
+                                  mem file (a zombie has no mem file)
+  fd ... -> ...config_file...     whether the player holds the config open;
+                                  no such line = it opens it only to write
+  tools: chmod=...                needed if we later block the write with chmod
+
+AFTERWARDS
+Restore the region with the release script: put run-release.sh back as run.sh
+and run once. bd_region.txt is 1, so this keeps region A; set it to 2 first if
+you want the player's own region B instead.

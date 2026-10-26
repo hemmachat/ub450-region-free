@@ -17,7 +17,10 @@ config and USB trees.
 - `test_tmo.sh` — extracts the `tmo` helper from `run.sh` and checks piped
   stdin, kill-on-timeout and exit-code passthrough (4 assertions).
 - `persistence-test-run.sh`, `watch-region.sh`, `au-validation-run.sh` — one-off
-  player-side diagnostics, not part of the local suite.
+  player-side diagnostics, not part of the local suite. `persistence-test-run.sh`
+  also probes `/proc/<bdpprog>/mem`, pagemap and `/dev/mem` read-only.
+- `testing/au-hardware-probe/` — USB contents and run sheet for the 27 Oct 2026
+  AU probe (hard cut, clean shutdown, memory probes).
 
 Run everything:
 

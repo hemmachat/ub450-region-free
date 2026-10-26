@@ -30,13 +30,19 @@ RUN 1 — WRITE THE VALUE
 3. Insert the Blu-ray and wait for the menu (or the region message).
 4. Wait about 30 seconds.
 5. Rename region_log.txt to log-1.txt. Do not edit it.
-6. REGION_FREE_OK.txt must exist. If REGION_FREE_FAILED.txt exists
-   instead, stop here and send both files.
+6. REGION_FREE_OK.txt is written at the end, but the player can stop the
+   script early — it may be missing even when the write worked. The
+   "Config write VERIFIED" line in region_log.txt is the one that matters.
+   If REGION_FREE_FAILED.txt exists instead, stop here and send both files.
 
 RUN 2 — NORMAL POWER-OFF
 1. Press the power button on the remote and wait until the player is off.
 2. Turn it on, keep the USB in, insert the Blu-ray, wait about 30 seconds.
 3. Open region_log.txt and find the line that starts with "Before:".
+   The "Started:" time tells you which run this is: the script can run
+   more than once in a session, and the first run after the boot is the
+   one whose "Before:" line answers the question. If the time looks late,
+   repeat the run from a cold boot.
 4. Rename region_log.txt to log-2.txt.
 5. If that line ends in BD=0x02, the value survived the power cycle. Try
    the Region B disc and tell us what the player does (photo of any

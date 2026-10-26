@@ -8,7 +8,7 @@ The tool sets the player to **one Blu-ray region** (1 = A, 2 = B, 4 = C). Stock 
 
 Tested on a DP-UB450GN (Australia) with firmware V127 - 26 Oct 2026. See "Does this work on other models?" below for UB150, UB154, UB159, UB820, and UB9000.
 
-> **Known limitation:** on some UK, US and EU units the Blu-ray region is written successfully but the player shows the original value again after a reboot (confirmed with v5.7 on a UK player, 26 Oct 2026). v5.7 and later log `Config write VERIFIED`; if the next run's `Before:` line shows the old value, the player reset it. The steps below unplug the player instead of using the remote, because a normal power-off lets some units rewrite the old value. An EU user confirmed that unplugging keeps the change; the UK is still under investigation.
+> **Known limitation:** on some UK, US and EU units the Blu-ray region is written successfully but the player shows the original value again after a clean power-off (confirmed with v5.7 on a UK player, 26 Oct 2026). v5.7 and later log `Config write VERIFIED`; if the next run's `Before:` line shows the old value, the player replaced it. The steps below unplug the player instead of using the remote, because a clean power-off lets those units write their old value back; an EU user confirmed that unplugging keeps the change, and the Australian player did not rewrite the value in the 27 Oct 2026 probe, so unplugging is harmless there. US and UK testers are confirming the one-time unplug flow.
 
 > **Disclaimer:**
 > - This tool is intended for use on your own player with discs you legally own. It does not bypass copy protection — AACS, BD+, and Cinavia remain fully intact.
@@ -109,7 +109,7 @@ On the tested Australian player, the Blu-ray region is now the value in `bd_regi
 
 ### 5. Check it worked
 
-Plug the USB drive back into your computer. The main file is **`region_log.txt`** (replaced on every run). It shows the original values, whether the write was verified, and how far the script got.
+Plug the USB drive back into your computer. The main file is **`region_log.txt`** (replaced on every run — if the script ran more than once, only the last run is in it; the `Started:` time tells you which one you are reading). It shows the original values, whether the write was verified, and how far the script got.
 
 - **`Config write VERIFIED`** — the new values are in the config file. This is the important line for Blu-ray.
 - **`REGION_FREE_OK.txt`** — the script reached the end. It contains the result line. This file can be missing if the player stopped the script early; that alone does not mean the region change failed.
@@ -123,7 +123,7 @@ Insert a disc from the region you set: with `bd_region.txt` = `1`, a region A di
 
 ## Extra steps for US and UK players
 
-Some US, UK and EU players show the old region again after a reboot. Every report so far used `7`, which this player does not accept, so we still do not know whether a normal value (1, 2 or 4) survives a power cycle. If you have a US DP-UB450P, or a UK/EU unit, and a disc from another region, this test answers it.
+Some US, UK and EU players show the old region again after a reboot: at a clean power-off the player writes its own copy of the settings back over the file. Every earlier report also used `7`, which this player does not accept, so we still do not know whether a normal value (1, 2 or 4) survives a power cycle. If you have a US DP-UB450P, or a UK/EU unit, and a disc from another region, this test answers it.
 
 The latest [release](https://github.com/hemmachat/ub450-region-switch/releases/latest) includes two ready-made packages:
 
@@ -136,13 +136,15 @@ Copy the contents of the matching folder to the root of your USB stick, next to 
 2. **Run 2 — normal power-off.** Press the power button on the remote and wait until the player is off. Turn it on, insert the disc again, wait about 30 seconds. Open `region_log.txt` and find the line starting with `Before:`. Rename the file to `log-2.txt`.
 3. **Run 3 — only if Run 2 shows the old value.** Insert the disc and wait about 40 seconds, then unplug the power cord instead of using the remote. Plug it back in, insert the disc, wait about 30 seconds, and read the `Before:` line again. Rename the file to `log-3.txt`.
 
+If the log's `Started:` time looks late (well past the boot), the script ran more than once in that session. The first run after the boot is the one whose `Before:` line answers the question — repeat the run from a cold boot if you are unsure.
+
 What the result means:
 
 - `BD=0x02` after Run 2 on a US player, or `BD=0x01` on a UK player: the value survived a normal power cycle. Try a disc from the other region.
 - Only Run 3 keeps it: the player's normal shutdown is rewriting the file.
 - Neither keeps it: the player rewrites the value at startup. The logs still tell us how, so please send them.
 
-Send back: `log-1.txt`, `log-2.txt`, `log-3.txt` if you did Run 3, `REGION_FREE_OK.txt` or `REGION_FREE_FAILED.txt`, your model and firmware version, and what the other-region disc did (a photo of any message helps). Open a [GitHub issue](https://github.com/hemmachat/ub450-region-switch/issues) and attach them, or paste the `Before:` lines.
+Send back: `log-1.txt`, `log-2.txt`, `log-3.txt` if you did Run 3, `REGION_FREE_OK.txt` or `REGION_FREE_FAILED.txt` (the OK file can be missing even when the write worked — the `Config write VERIFIED` line is what counts), your model and firmware version, and what the other-region disc did (a photo of any message helps). Open a [GitHub issue](https://github.com/hemmachat/ub450-region-switch/issues) and attach them, or paste the `Before:` lines.
 
 Optional diagnostics: rename `run.sh` to `run-region.sh`, rename `diag.sh` to `run.sh`, and do one more run. The USB gets a `diag_output` folder — send that too. It only reads.
 
@@ -184,7 +186,7 @@ Unknown. If a firmware update resets the region, repeat the process.
 
 ### The region went back to the old value after a reboot
 
-v5.7 and later log `Config write VERIFIED` when the new value is in the config file. If the next run's `Before:` line shows the old value, the player changed it after the write. This happens on some UK, US and EU units (confirmed on a UK player, 26 Oct 2026) and is under investigation. Every report so far used `7`, which the player does not accept, so it is still unknown whether a normal value (1, 2 or 4) survives — see [Extra steps for US and UK players](#extra-steps-for-us-and-uk-players). Send `region_log.txt` and `.config_dump.bin` from both runs, plus your model and firmware version. Also copy `diag.sh` over `run.sh` on the USB and run once more — it only reads — and send the `diag_output` folder it creates.
+v5.7 and later log `Config write VERIFIED` when the new value is in the config file. If the next run's `Before:` line shows the old value, the player wrote its own copy of the settings back over the file. This can happen at a clean power-off on some UK, US and EU units (confirmed on a UK player, 26 Oct 2026); the Australian unit has not shown it, but the unplug step is safe there too. **Unplug the player instead of using the remote after the run** — an EU user confirmed that keeps the change, and the tool's closing log says the same. Send `region_log.txt` and `.config_dump.bin` from both runs, plus your model and firmware version. US and UK testers are also checking whether a normal value survives — see [Extra steps for US and UK players](#extra-steps-for-us-and-uk-players).
 
 ### An older version wrote `7` — why did a disc play then?
 
