@@ -161,6 +161,10 @@ Unknown. If a firmware update resets the region, repeat the process.
 
 v5.7 and later log `Config write VERIFIED` when the new value is in the config file. If the next run's `Before:` line shows the old value, the player changed it after the write. This happens on some UK, US and EU units (confirmed on a UK player, 26 Oct 2026) and is under investigation. Send `region_log.txt` and `.config_dump.bin` from both runs, plus your model and firmware version. Also copy `diag.sh` over `run.sh` on the USB and run once more — it only reads — and send the `diag_output` folder it creates.
 
+### An older version wrote `7` — why did a disc play then?
+
+`7` is not an "all regions" value on stock firmware; the player falls back to its own region. If a disc played, region A was actually loaded: either the value had been set to `1` by an earlier test or manual run, or the player was still using the region it loaded at startup — a written value only takes effect after the next power cycle. The current version writes `1` explicitly; the `Before:` line in `region_log.txt` shows the value that was in the file.
+
 ### Can this make my player region-free?
 
 No. The factory firmware accepts **one Blu-ray region at a time**. This tool switches that region (1 = A, 2 = B, 4 = C) — it does not unlock all regions, and `7` falls back to the player's own region. Set the region of the discs you want to watch, run the tool, and switch back to your own region when you are done (2 on a B player, 1 on an A player). True region-free playback needs modified player firmware, which this project does not provide or install.
