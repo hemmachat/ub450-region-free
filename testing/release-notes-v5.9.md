@@ -13,4 +13,4 @@ Region-free is still not possible on stock firmware: the player enforces one Blu
 
 `us/` and `uk/` are test packages for a US and a UK reporter. They write one valid region value (2 on US, 1 on UK) and ask for three runs, to find out whether a valid value survives a power cycle. Earlier "region reverts" reports all used 7, which this player rejects, so they could not answer that question. These folders do not include `BDJ.jar` — the testers use the jar from their earlier runs. They are not needed for normal use.
 
-SHA-256: `375ad40c88762e850a5f9148dbe9c71846add1cd33bd7a171de7bfbacfc9b642`
+SHA-256: `d00e64d19f276190cbebf52765acea6d22d5778d41539732d437004239b6e5b4`
