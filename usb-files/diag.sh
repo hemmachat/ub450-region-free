@@ -13,6 +13,16 @@ echo "Started: $(date)" >> "$LOG"
 
 log() { echo "$1" >> "$LOG"; }
 
+# Byte offset of a key in the config file. `strings` is absent on some players
+# (UK unit, 26 Oct), so search the od hex dump instead — same fallback as run.sh.
+keyoff() {
+    _kf=$(od -v -An -tx1 < "$1" 2>/dev/null | tr -cd '0-9a-f')
+    _kk=$(printf '%s' "$2" | od -v -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+    _kb="${_kf%%"$_kk"*}"
+    [ -n "$_kk" ] && [ "$_kb" != "$_kf" ] || return 1
+    echo $(( ${#_kb} / 2 ))
+}
+
 # 0. System info
 log ""
 log "--- System info ---"
@@ -24,13 +34,13 @@ cat /etc/firmware_version >> "$LOG" 2>/dev/null
 ls -la /dev/eeprom* /dev/mtd[0-9]* >> "$LOG" 2>&1
 
 # Model name and country from config
-MODEL_OFF=$(strings -a -t d /acfg/config_file_global.txt 2>/dev/null | grep 'IDX_GB_PTT_MODEL_NAME$' | head -1 | awk '{print $1}')
+MODEL_OFF=$(keyoff /acfg/config_file_global.txt IDX_GB_PTT_MODEL_NAME)
 if [ -n "$MODEL_OFF" ]; then
     MODEL_VOFF=$((MODEL_OFF + 36))
-    MODEL_VAL=$(dd if=/acfg/config_file_global.txt bs=1 skip=$MODEL_VOFF count=32 2>/dev/null | strings | head -1)
+    MODEL_VAL=$(dd if=/acfg/config_file_global.txt bs=1 skip=$MODEL_VOFF count=32 2>/dev/null | tr -d '\000' | head -1)
     log "Model: $MODEL_VAL"
 fi
-COUNTRY_OFF=$(strings -a -t d /acfg/config_file_global.txt 2>/dev/null | grep 'IDX_GB_PTT_COUNTRYCODE$' | head -1 | awk '{print $1}')
+COUNTRY_OFF=$(keyoff /acfg/config_file_global.txt IDX_GB_PTT_COUNTRYCODE)
 if [ -n "$COUNTRY_OFF" ]; then
     COUNTRY_VOFF=$((COUNTRY_OFF + 36))
     COUNTRY_VAL=$(dd if=/acfg/config_file_global.txt bs=1 skip=$COUNTRY_VOFF count=4 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f ')
@@ -40,21 +50,21 @@ fi
 # Current region values from config file
 log ""
 log "--- Current regions (config file) ---"
-DVD_OFF=$(strings -a -t d /acfg/config_file_global.txt 2>/dev/null | grep 'IDX_GB_PTT_REGIONCODE$' | head -1 | awk '{print $1}')
+DVD_OFF=$(keyoff /acfg/config_file_global.txt IDX_GB_PTT_REGIONCODE)
 if [ -n "$DVD_OFF" ]; then
     DVD_VOFF=$((DVD_OFF + 36))
     DVD_VAL=$(dd if=/acfg/config_file_global.txt bs=1 skip=$DVD_VOFF count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
     DVD_DEC=$(printf '%d' "0x${DVD_VAL:-ff}" 2>/dev/null)
     log "DVD region: $DVD_DEC (0x$DVD_VAL)  [0=free 1=US 2=Europe 3=SE-Asia 4=AU 5=Russia 6=China]"
 fi
-BD_OFF=$(strings -a -t d /acfg/config_file_global.txt 2>/dev/null | grep 'IDX_GB_PTT_BDREGIONCODE$' | head -1 | awk '{print $1}')
+BD_OFF=$(keyoff /acfg/config_file_global.txt IDX_GB_PTT_BDREGIONCODE)
 if [ -n "$BD_OFF" ]; then
     BD_VOFF=$((BD_OFF + 36))
     BD_VAL=$(dd if=/acfg/config_file_global.txt bs=1 skip=$BD_VOFF count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
     BD_DEC=$(printf '%d' "0x${BD_VAL:-ff}" 2>/dev/null)
     log "BD region:  $BD_DEC (0x$BD_VAL)  [1=A 2=B 4=C 7=all]"
 fi
-IR_OFF=$(strings -a -t d /acfg/config_file_global.txt 2>/dev/null | grep 'IDX_GB_PTT_IR_REGIONCODE$' | head -1 | awk '{print $1}')
+IR_OFF=$(keyoff /acfg/config_file_global.txt IDX_GB_PTT_IR_REGIONCODE)
 if [ -n "$IR_OFF" ]; then
     IR_VOFF=$((IR_OFF + 36))
     IR_VAL=$(dd if=/acfg/config_file_global.txt bs=1 skip=$IR_VOFF count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
@@ -68,13 +78,13 @@ log "--- Current regions (player live) ---"
 LIVE_REGION=""
 # Try cliprog first (direct IPC to bdpprog)
 if [ -x /usr/local/bin/cliprog ]; then
-    LIVE_REGION=$(cliprog app.acfg.rg 2>/dev/null)
+    LIVE_REGION=$(timeout 3 cliprog app.acfg.rg 2>/dev/null)
     [ -n "$LIVE_REGION" ] && log "cliprog app.acfg.rg: $LIVE_REGION"
 fi
 # Try Web CLI if cliprog didn't work
 if [ -z "$LIVE_REGION" ] && [ -x /usr/bin/curl ]; then
     CLI_RESP=$(curl -s --connect-timeout 2 "http://127.0.0.1:8383/config.cgi?page=get_log_and_set_cli_result.html&flag=cli_cmd&cli_value=app.acfg.rg" 2>/dev/null)
-    LIVE_REGION=$(echo "$CLI_RESP" | strings 2>/dev/null | grep "region code")
+    LIVE_REGION=$(echo "$CLI_RESP" | grep "region code")
     [ -n "$LIVE_REGION" ] && log "Web CLI app.acfg.rg: $LIVE_REGION"
 fi
 if [ -z "$LIVE_REGION" ]; then
@@ -91,12 +101,12 @@ for f in /acfg/config_file*.txt; do
         cp "$f" "$OUT/$base" 2>/dev/null
         log "Copied $f ($(wc -c < "$f" | tr -d ' ') bytes)"
         # Check if this file has the DVD region key
-        if strings "$f" 2>/dev/null | grep -q "IDX_GB_PTT_REGIONCODE"; then
+        if grep -q "IDX_GB_PTT_REGIONCODE" "$f" 2>/dev/null; then
             log "  -> HAS IDX_GB_PTT_REGIONCODE"
         else
             log "  -> no IDX_GB_PTT_REGIONCODE"
         fi
-        if strings "$f" 2>/dev/null | grep -q "IDX_GB_PTT_BDREGIONCODE"; then
+        if grep -q "IDX_GB_PTT_BDREGIONCODE" "$f" 2>/dev/null; then
             log "  -> HAS IDX_GB_PTT_BDREGIONCODE"
         fi
     fi
@@ -124,7 +134,7 @@ for dev in /dev/eeprom_0 /dev/eeprom_3; do
         sz=$(wc -c < "$OUT/$base.bin" | tr -d ' ')
         log "Dumped $dev: $sz bytes"
         # Search for region key in EEPROM
-        if strings "$OUT/$base.bin" 2>/dev/null | grep -q "IDX_GB_PTT_REGIONCODE"; then
+        if grep -q "IDX_GB_PTT_REGIONCODE" "$OUT/$base.bin" 2>/dev/null; then
             log "  -> HAS IDX_GB_PTT_REGIONCODE in EEPROM!"
         fi
     else
@@ -139,7 +149,7 @@ for i in 0 1 2 3 4 5; do
         timeout 5 dd if="$dev" of="$OUT/mtd${i}.bin" bs=4096 count=16 2>/dev/null
         sz=$(wc -c < "$OUT/mtd${i}.bin" | tr -d ' ')
         log "Dumped $dev: $sz bytes"
-        if strings "$OUT/mtd${i}.bin" 2>/dev/null | grep -q "IDX_GB_PTT"; then
+        if grep -q "IDX_GB_PTT" "$OUT/mtd${i}.bin" 2>/dev/null; then
             log "  -> HAS IDX_GB_PTT key in MTD$i!"
         fi
     fi
@@ -158,7 +168,7 @@ if [ -x /usr/bin/curl ]; then
         curl -s --connect-timeout 2 "http://127.0.0.1:8383/config.cgi?page=get_log_and_set_cli_result.html&flag=cli_cmd&cli_value=app.acfg.rg" > "$OUT/cli_region_read.html" 2>/dev/null
         log "Sent app.acfg.rg READ query, response saved to cli_region_read.html"
         # Extract the region values from the HTML response
-        REGION_LINE=$(strings "$OUT/cli_region_read.html" 2>/dev/null | grep "region code")
+        REGION_LINE=$(grep "region code" "$OUT/cli_region_read.html" 2>/dev/null)
         log "Region response: $REGION_LINE"
         # Also test other CLI commands
         curl -s --connect-timeout 2 "http://127.0.0.1:8383/config.cgi?page=get_log_and_set_cli_result.html&flag=cli_cmd&cli_value=drv.hdmi.status" > "$OUT/cli_hdmi_status.html" 2>/dev/null
@@ -217,7 +227,7 @@ fi
 log ""
 log "--- Search /acfg/ for IDX_GB_PTT_REGIONCODE ---"
 for f in /acfg/*; do
-    if [ -f "$f" ] && strings "$f" 2>/dev/null | grep -q "IDX_GB_PTT_REGIONCODE"; then
+    if [ -f "$f" ] && grep -q "IDX_GB_PTT_REGIONCODE" "$f" 2>/dev/null; then
         log "Found in: $f"
     fi
 done
@@ -242,7 +252,7 @@ fi
 log ""
 log "--- config_file.txt region values ---"
 if [ -f /acfg/config_file.txt ]; then
-    OFF=$(strings -a -t d /acfg/config_file.txt 2>/dev/null | grep 'IDX_GB_PTT_REGIONCODE$' | head -1 | awk '{print $1}')
+    OFF=$(keyoff /acfg/config_file.txt IDX_GB_PTT_REGIONCODE)
     if [ -n "$OFF" ]; then
         VAL_OFF=$((OFF + 36))
         VAL=$(dd if=/acfg/config_file.txt bs=1 skip=$VAL_OFF count=1 2>/dev/null | od -An -tx1 | tr -cd '0-9a-f')
@@ -250,7 +260,7 @@ if [ -f /acfg/config_file.txt ]; then
     else
         log "config_file.txt: IDX_GB_PTT_REGIONCODE not found"
     fi
-    OFF=$(strings -a -t d /acfg/config_file.txt 2>/dev/null | grep 'IDX_GB_PTT_BDREGIONCODE$' | head -1 | awk '{print $1}')
+    OFF=$(keyoff /acfg/config_file.txt IDX_GB_PTT_BDREGIONCODE)
     if [ -n "$OFF" ]; then
         VAL_OFF=$((OFF + 36))
         VAL=$(dd if=/acfg/config_file.txt bs=1 skip=$VAL_OFF count=1 2>/dev/null | od -An -tx1 | tr -cd '0-9a-f')
@@ -268,7 +278,7 @@ log "This value overrides the config file. BD has no EEPROM copy."
 log "Scanning /dev/eeprom* and small /dev/mtd* partitions..."
 
 # Get config file DVD region for cross-reference
-DIAG_DVD_OFF=$(strings -a -t d /acfg/config_file_global.txt 2>/dev/null | grep 'IDX_GB_PTT_REGIONCODE$' | head -1 | awk '{print $1}')
+DIAG_DVD_OFF=$(keyoff /acfg/config_file_global.txt IDX_GB_PTT_REGIONCODE)
 if [ -n "$DIAG_DVD_OFF" ]; then
     DIAG_DVD_VOFF=$((DIAG_DVD_OFF + 36))
     DIAG_CFG_DVD=$(dd if=/acfg/config_file_global.txt bs=1 skip=$DIAG_DVD_VOFF count=1 2>/dev/null | od -An -tx1 | tr -cd '0-9a-f')
@@ -309,7 +319,7 @@ log "--- DVD region: EEPROM vs config file ---"
 if [ -n "$DVD_KEY_OFF" ]; then
     :
 else
-    DVD_KEY_OFF=$(strings -a -t d /acfg/config_file_global.txt 2>/dev/null | grep 'IDX_GB_PTT_REGIONCODE$' | head -1 | awk '{print $1}')
+    DVD_KEY_OFF=$(keyoff /acfg/config_file_global.txt IDX_GB_PTT_REGIONCODE)
 fi
 if [ -n "$DVD_KEY_OFF" ]; then
     CFG_DVD_OFF=$((DVD_KEY_OFF + 36))
