@@ -1,0 +1,12 @@
+1
+# Blu-ray region — change the number on the first line.
+# Only the first line is read; put the number alone on line 1.
+# Leading zeros and Windows line endings are accepted.
+#
+# 1 = Region A (Americas, Japan, Korea, SE Asia)
+# 2 = Region B (Europe, Australia, Africa, Oceania)
+# 4 = Region C (Central/South Asia, Russia, China)
+#
+# The tool accepts only 1, 2 and 4. 7 does not make the player region-free —
+# it falls back to your own region. Delete this file to keep the default (1 = A).
+# To switch back to region B, set 2.

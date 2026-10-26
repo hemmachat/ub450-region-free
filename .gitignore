@@ -1,2 +1,4 @@
 usb-files/BDJ.jar
 .DS_Store
+analysis/
+tests/.targets.*

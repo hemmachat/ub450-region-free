@@ -102,10 +102,13 @@ for f in /acfg/config_file*.txt; do
     fi
 done
 
-# 2. MTD partition table
+# 2. MTD partition table and mounts
 log ""
 log "--- /proc/mtd ---"
 cat /proc/mtd >> "$LOG" 2>&1
+log ""
+log "--- /proc/mounts ---"
+cat /proc/mounts >> "$LOG" 2>&1
 
 # 3. EEPROM / MTD devices
 log ""

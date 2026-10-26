@@ -1,31 +1,39 @@
 #!/bin/sh
-# DP-UB450/UB150 Region-Free Script v5.7
+# DP-UB450/UB150 Region Switch Script v5.8
 # Runs automatically when a Blu-ray disc is loaded with BDJ_DEBUG on the USB.
-# Sets Blu-ray to all regions (A+B+C) and optionally DVD to a chosen region.
+# Sets Blu-ray to one region code (1=A, 2=B, 4=C) and optionally DVD to a chosen
+# region. Other values fall back to the player's own region; 7 is not a bitmask
+# (see firmware-analysis.md §12).
 #
 # 1. Config file write — fast, always works for BD
 # 2. EEPROM direct write — writes DVD region to hardware (offset 0x200)
 #    Scans /dev/eeprom*, /dev/mtd* (char), and sysfs I2C EEPROM paths
 
-CONF=/acfg/config_file_global.txt
-USB=/mnt/sda1
+CONF=${CONF:-/acfg/config_file_global.txt}
+USB=${USB:-/mnt/sda1}
 LOG=$USB/region_log.txt
 
 # DVD region: 0=free, 1=US, 2=Europe, 3=SE Asia, 4=Australia, 5=Russia/India, 6=China
-# Set to empty to skip DVD region change. Default: 1 (US).
+# Default: 1 (US). An empty dvd_region.txt (or an empty first line) skips the DVD change.
 DVD_TARGET=1
-# BD region: 7 = all regions (A+B+C)
-BD_TARGET=7
+# BD region: 1=A, 2=B, 4=C. Other values fall back to the player's own region;
+# 7 is not a bitmask on stock firmware.
+BD_TARGET=1
 
 # Allow override from USB file
 if [ -f "$USB/dvd_region.txt" ]; then
-    DVD_TARGET=$(cat "$USB/dvd_region.txt" | tr -cd '0-9' | head -c 1)
+    DVD_TARGET=$(awk 'NR==1 {gsub(/\r/,""); v=$1; if (v != "") { sub(/^0+/,"",v); if (v == "") v="0" } print v}' "$USB/dvd_region.txt" 2>/dev/null)
 fi
+if [ -f "$USB/bd_region.txt" ]; then
+    # First line, first field; strips CR and leading zeros so 01 and 2\r\n work.
+    BD_TARGET=$(awk 'NR==1 {gsub(/\r/,""); v=$1; if (v != "") { sub(/^0+/,"",v); if (v == "") v="0" } print v}' "$USB/bd_region.txt" 2>/dev/null)
+fi
+[ -z "$BD_TARGET" ] && BD_TARGET=1
 
 log() { echo "$1" >> "$LOG"; }
 checkpoint() { echo "$1" >> "$LOG"; sync; }
 
-echo "=== UB450 Region-Free v5.7 ===" > "$LOG"
+echo "=== UB450 Region Switch v5.8 ===" > "$LOG"
 log "Started: $(date)"
 log "Kernel: $(uname -a 2>/dev/null)"
 checkpoint "Target: DVD=$DVD_TARGET, BD=$BD_TARGET"
@@ -172,9 +180,28 @@ if [ -f "$USB/RESTORE" ]; then
         echo "FAILED — no backup found" > "$USB/REGION_RESTORE_FAILED.txt"
     fi
     log "Finished: $(date)"
-    log "Power off the player, remove the USB, and turn it back on."
+    log "Unplug the player (or switch it off at the wall), remove the USB, then plug it back in and turn it on."
     exit 0
 fi
+
+# Validate the targets only on the write path. RESTORE must still work when
+# bd_region.txt or dvd_region.txt are invalid or left over from older versions.
+case "$BD_TARGET" in
+    1|2|4) ;;
+    *)
+        log "ERROR: BD region must be 1 (A), 2 (B) or 4 (C) — got [$BD_TARGET]"
+        echo "FAILED — invalid BD region" > "$USB/REGION_FREE_FAILED.txt"
+        exit 1
+        ;;
+esac
+case "$DVD_TARGET" in
+    ''|0|1|2|3|4|5|6) ;;
+    *)
+        log "ERROR: DVD region must be 0-6 (or empty to skip) — got [$DVD_TARGET]"
+        echo "FAILED — invalid DVD region" > "$USB/REGION_FREE_FAILED.txt"
+        exit 1
+        ;;
+esac
 
 # --- Backup (skip if nothing will change, so we don't overwrite the original) ---
 
@@ -210,11 +237,23 @@ sync
 BD_READBACK=$(read_byte "$CONF" $BD_VAL_OFF)
 DVD_READBACK=$(read_byte "$CONF" $DVD_VAL_OFF)
 BD_EXPECTED_HEX=$(printf '%02x' $BD_TARGET)
-DVD_EXPECTED_HEX=$(printf '%02x' $DVD_TARGET)
-if [ "$BD_READBACK" = "$BD_EXPECTED_HEX" ] && [ "$DVD_READBACK" = "$DVD_EXPECTED_HEX" ]; then
-    checkpoint "Config write VERIFIED: DVD=0x$DVD_READBACK (rc=$DVD_WRITE_RC), BD=0x$BD_READBACK (rc=$BD_WRITE_RC)"
+BD_OK=1
+[ "$BD_READBACK" = "$BD_EXPECTED_HEX" ] || BD_OK=0
+if [ -n "$DVD_TARGET" ]; then
+    DVD_EXPECTED_HEX=$(printf '%02x' "$DVD_TARGET")
+    DVD_OK=1
+    [ "$DVD_READBACK" = "$DVD_EXPECTED_HEX" ] || DVD_OK=0
+    if [ "$BD_OK" = "1" ] && [ "$DVD_OK" = "1" ]; then
+        checkpoint "Config write VERIFIED: DVD=0x$DVD_READBACK (rc=$DVD_WRITE_RC), BD=0x$BD_READBACK (rc=$BD_WRITE_RC)"
+    else
+        checkpoint "Config write MISMATCH: DVD=0x$DVD_READBACK (wanted 0x$DVD_EXPECTED_HEX, rc=$DVD_WRITE_RC), BD=0x$BD_READBACK (wanted 0x$BD_EXPECTED_HEX, rc=$BD_WRITE_RC)"
+    fi
 else
-    checkpoint "Config write MISMATCH: DVD=0x$DVD_READBACK (wanted 0x$DVD_EXPECTED_HEX, rc=$DVD_WRITE_RC), BD=0x$BD_READBACK (wanted 0x$BD_EXPECTED_HEX, rc=$BD_WRITE_RC)"
+    if [ "$BD_OK" = "1" ]; then
+        checkpoint "Config write VERIFIED: DVD skipped, BD=0x$BD_READBACK (rc=$BD_WRITE_RC)"
+    else
+        checkpoint "Config write MISMATCH: BD=0x$BD_READBACK (wanted 0x$BD_EXPECTED_HEX, rc=$BD_WRITE_RC)"
+    fi
 fi
 
 # --- EEPROM direct write (DVD region hardware source) ---
@@ -360,8 +399,10 @@ log "After (config): DVD=0x$DVD_AFTER, BD=0x$BD_AFTER"
 if [ "$BD_AFTER" = "$BD_EXPECTED" ]; then
     if [ "$EEPROM_OK" = "1" ]; then
         RESULT="DVD=$DVD_TARGET set via EEPROM + config. BD=$BD_TARGET set via config."
-    else
+    elif [ -n "$DVD_TARGET" ]; then
         RESULT="BD=$BD_TARGET set via config. DVD=$DVD_TARGET written to config only (may not survive reboot — run diag.sh to help debug)."
+    else
+        RESULT="BD=$BD_TARGET set via config. DVD unchanged."
     fi
     log "SUCCESS — $RESULT"
     echo "$RESULT" > "$USB/REGION_FREE_OK.txt"
@@ -374,9 +415,9 @@ fi
 log ""
 log "Finished: $(date)"
 if [ "$EEPROM_OK" = "1" ]; then
-    log "DVD region written to EEPROM (survives reboot). Power off, remove USB, turn back on."
+    log "DVD region written to EEPROM (survives reboot). Unplug the player (or switch it off at the wall), remove the USB, then plug it back in and turn it on."
 else
-    log "Power off the player, remove the USB, and turn it back on."
+    log "Unplug the player (or switch it off at the wall), remove the USB, then plug it back in and turn it on."
 fi
 
 # Run diagnostics automatically if diag.sh is on the USB
