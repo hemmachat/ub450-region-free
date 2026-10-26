@@ -39,10 +39,10 @@ Tested on a DP-UB450GN (Australia) with firmware V127 - 26 Oct 2026. See "Does t
 Clone or download the repository:
 
 ```sh
-git clone https://github.com/hemmachat/ub450-region-free.git
+git clone https://github.com/hemmachat/ub450-region-switch.git
 ```
 
-Or click **Code → Download ZIP** on the [repository page](https://github.com/hemmachat/ub450-region-free) and unzip it.
+Or click **Code → Download ZIP** on the [repository page](https://github.com/hemmachat/ub450-region-switch) and unzip it.
 
 ### 2. Build BDJ.jar
 
