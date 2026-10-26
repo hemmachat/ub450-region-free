@@ -11,6 +11,11 @@ config and USB trees.
   (630 assertions). It runs the real `run.sh` end-to-end and needs `zsh`
   (macOS dash has no `printf '\x..'`); `sync` is stubbed because the test checks
   bytes and result files, not durability. The PICT model is in the file header.
+- `test_us_portability.sh` — simulates the US player's stripped busybox (no
+  `strings`, `od` prints nothing, no `timeout`) and checks `run.sh` still finds
+  the region keys and writes the Blu-ray byte (5 assertions).
+- `test_tmo.sh` — extracts the `tmo` helper from `run.sh` and checks piped
+  stdin, kill-on-timeout and exit-code passthrough (4 assertions).
 - `persistence-test-run.sh`, `watch-region.sh`, `au-validation-run.sh` — one-off
   player-side diagnostics, not part of the local suite.
 

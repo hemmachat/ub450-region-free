@@ -1,5 +1,5 @@
 #!/bin/sh
-# DP-UB450/UB150 Region Switch Script v5.8
+# DP-UB450/UB150 Region Switch Script v5.9
 # Runs automatically when a Blu-ray disc is loaded with BDJ_DEBUG on the USB.
 # Sets Blu-ray to one region code (1=A, 2=B, 4=C) and optionally DVD to a chosen
 # region. Other values fall back to the player's own region; 7 is not a bitmask
@@ -33,7 +33,7 @@ fi
 log() { echo "$1" >> "$LOG"; }
 checkpoint() { echo "$1" >> "$LOG"; sync; }
 
-echo "=== UB450 Region Switch v5.8 ===" > "$LOG"
+echo "=== UB450 Region Switch v5.9 ===" > "$LOG"
 log "Started: $(date)"
 log "Kernel: $(uname -a 2>/dev/null)"
 checkpoint "Target: DVD=$DVD_TARGET, BD=$BD_TARGET"
@@ -52,6 +52,29 @@ cp "$CONF" "$USB/.config_dump.bin" 2>/dev/null
 
 # --- Helpers ---
 
+# No `timeout` on any UB450 rootfs (checked in AU V127, UK V127 and US V113),
+# so `timeout 3 dd` failed everywhere and silently skipped every EEPROM step.
+# Fall back to running the command in the background and killing it. `<&0` is
+# needed: an async list gets /dev/null as stdin, which would break the piped
+# EEPROM write.
+# --- tmo: `timeout`, or a kill-based fallback (tests/test_tmo.sh extracts this) ---
+if command -v timeout >/dev/null 2>&1; then
+    tmo() { timeout "$@"; }
+elif command -v sleep >/dev/null 2>&1; then
+    tmo() {
+        _tmo_t="$1"; shift
+        "$@" <&0 & _tmo_p=$!
+        ( sleep "$_tmo_t"; kill -9 "$_tmo_p" 2>/dev/null ) >/dev/null 2>&1 & _tmo_w=$!
+        wait "$_tmo_p" 2>/dev/null; _tmo_rc=$?
+        kill -9 "$_tmo_w" 2>/dev/null
+        wait "$_tmo_w" 2>/dev/null
+        return "$_tmo_rc"
+    }
+else
+    tmo() { shift; "$@"; }
+fi
+# --- end tmo ---
+
 # Find the byte offset of a key string inside a binary config file.
 # Method 1: strings -t d (works on busybox and GNU).
 # Method 2: od hex search (works on GNU/macOS, not all busybox).
@@ -68,9 +91,12 @@ find_offset() {
         fi
     fi
 
-    # Method 2: od hex dump + shell pattern match
+    # Method 2: hex dump + shell pattern match. The player rootfs has no `od`
+    # at all (AU/UK/US images), so use hexdump, which it does ship.
     _fo_fhex=$(od -v -An -tx1 < "$_fo_file" 2>/dev/null | tr -cd '0-9a-f')
+    [ -n "$_fo_fhex" ] || _fo_fhex=$(hexdump -v -e '1/1 "%02x"' < "$_fo_file" 2>/dev/null)
     _fo_khex=$(printf '%s' "$_fo_key" | od -v -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+    [ -n "$_fo_khex" ] || _fo_khex=$(printf '%s' "$_fo_key" | hexdump -v -e '1/1 "%02x"' 2>/dev/null)
     if [ -n "$_fo_fhex" ] && [ -n "$_fo_khex" ]; then
         _fo_before="${_fo_fhex%%${_fo_khex}*}"
         if [ "$_fo_before" != "$_fo_fhex" ]; then
@@ -93,7 +119,7 @@ find_offset() {
 }
 
 # Read one byte at a given offset, return as two-char hex.
-# Tries od first (macOS/GNU), falls back to hexdump (busybox), then printf.
+# Tries od first (macOS/GNU), falls back to hexdump (present on the player), then printf.
 read_byte() {
     _rb_val=$(dd if="$1" bs=1 skip="$2" count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
     if [ ${#_rb_val} -ge 2 ]; then echo "$_rb_val"; return; fi
@@ -165,7 +191,7 @@ if [ -f "$USB/RESTORE" ]; then
         if [ -f "$USB/.eeprom_dvd_backup.bin" ] && [ -f "$USB/.eeprom_device.txt" ]; then
             RESTORE_EEPROM=$(cat "$USB/.eeprom_device.txt")
             if [ -e "$RESTORE_EEPROM" ]; then
-                timeout 3 dd if="$USB/.eeprom_dvd_backup.bin" of="$RESTORE_EEPROM" bs=1 seek=512 conv=notrunc 2>/dev/null
+                tmo 3 dd if="$USB/.eeprom_dvd_backup.bin" of="$RESTORE_EEPROM" bs=1 seek=512 conv=notrunc 2>/dev/null
                 log "EEPROM restored at $RESTORE_EEPROM offset 0x200"
             fi
         fi
@@ -315,7 +341,7 @@ if [ -n "$DVD_TARGET" ]; then
         checkpoint "STEP: Trying EEPROM device $EEPROM_DEV"
 
         # Read 4 bytes at offset 0x200 — the firmware stores DVD region here
-        EEPROM_RAW=$(timeout 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=4 2>/dev/null)
+        EEPROM_RAW=$(tmo 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=4 2>/dev/null)
         if [ -z "$EEPROM_RAW" ]; then
             log "EEPROM $EEPROM_DEV: read at 0x200 returned empty (not readable)"
             continue
@@ -336,7 +362,8 @@ if [ -n "$DVD_TARGET" ]; then
             fi
             # Extra safety for MTD devices: check IR region at 0x205 is also valid (0 or 1)
             case "$EEPROM_DEV" in /dev/mtd*)
-                IR_BYTE=$(timeout 3 dd if="$EEPROM_DEV" bs=1 skip=517 count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+                IR_BYTE=$(tmo 3 dd if="$EEPROM_DEV" bs=1 skip=517 count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+                [ -n "$IR_BYTE" ] || IR_BYTE=$(tmo 3 dd if="$EEPROM_DEV" bs=1 skip=517 count=1 2>/dev/null | hexdump -v -e '1/1 "%02x"' 2>/dev/null)
                 IR_DEC=$(printf '%d' "0x${IR_BYTE:-ff}" 2>/dev/null)
                 if [ "$IR_DEC" -gt 1 ] 2>/dev/null; then
                     log "EEPROM $EEPROM_DEV: DVD matches but IR at 0x205 = $IR_DEC (expected 0 or 1), likely wrong partition"
@@ -349,7 +376,7 @@ if [ -n "$DVD_TARGET" ]; then
             checkpoint "STEP: EEPROM match found at $EEPROM_DEV — preparing to write"
             # Back up original EEPROM value
             if [ ! -f "$USB/.eeprom_dvd_backup.bin" ]; then
-                timeout 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=4 of="$USB/.eeprom_dvd_backup.bin" 2>/dev/null
+                tmo 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=4 of="$USB/.eeprom_dvd_backup.bin" 2>/dev/null
                 echo "$EEPROM_DEV" > "$USB/.eeprom_device.txt"
                 log "EEPROM backup saved"
             fi
@@ -357,14 +384,14 @@ if [ -n "$DVD_TARGET" ]; then
             checkpoint "STEP: Writing DVD=$DVD_TARGET to EEPROM $EEPROM_DEV at 0x200"
             # Write new DVD region as a 4-byte LE value (firmware reads 4 bytes, uses low byte)
             printf "\\x$(printf '%02x' $DVD_TARGET)\\x00\\x00\\x00" | \
-                timeout 3 dd of="$EEPROM_DEV" bs=1 seek=512 conv=notrunc 2>/dev/null
+                tmo 3 dd of="$EEPROM_DEV" bs=1 seek=512 conv=notrunc 2>/dev/null
             sync
             checkpoint "STEP: EEPROM write + sync completed"
 
             # Verify
-            EEPROM_CHECK=$(timeout 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+            EEPROM_CHECK=$(tmo 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
             if [ -z "$EEPROM_CHECK" ]; then
-                EEPROM_CHECK=$(timeout 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=1 2>/dev/null | hexdump -v -e '1/1 "%02x"' 2>/dev/null)
+                EEPROM_CHECK=$(tmo 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=1 2>/dev/null | hexdump -v -e '1/1 "%02x"' 2>/dev/null)
             fi
             if [ "$EEPROM_CHECK" = "$(printf '%02x' $DVD_TARGET)" ]; then
                 EEPROM_OK=1

@@ -1,4 +1,4 @@
-USB contents — region switch v5.8
+USB contents — region switch v5.9
 =================================
 
 Factory limitation: the player cannot be made region-free. It enforces one

@@ -224,6 +224,8 @@ Region codes: the player accepts `1` (A), `2` (B) and `4` (C) as single region c
 
 ## Changelog
 
+**v5.9** — Works with the player's actual toolset. The rootfs has no `timeout`, no `od` and no `strings` (checked in the AU V127, UK V127 and US V113 firmware images), so earlier versions silently skipped every EEPROM step — the DVD hardware write never happened on any unit — and `diag.sh` reported blank model and region values. Both scripts now use a kill-after-N-seconds wrapper and `hexdump` (which the player does ship). Reported by a US DP-UB450P user (26 Oct 2026); the US region still reverts at boot, which is a separate, open issue.
+
 **v5.8** — Blu-ray is now a region selector, not "region-free". The default is `BD_TARGET=1` (region A), and an optional `bd_region.txt` on the USB sets 1 (A), 2 (B) or 4 (C). Playback tests on a UB450GN (26 Oct 2026) showed the player treats the byte as a single region code: `1` plays region A, `2` plays region B, and `7` falls back to the player's own region (it did nothing).
 
 - `bd_region.txt` and `dvd_region.txt` are read from the first line; leading zeros and Windows line endings are accepted. BD values other than 1/2/4 are rejected before anything is written. DVD values are validated 0–6, and an empty file skips the DVD change — previously 7–9 were written unchecked.

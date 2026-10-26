@@ -1,0 +1,64 @@
+Blu-ray region test — v5.9 (26 October 2026)
+UK / Europe package
+
+WHAT THIS TESTS
+Earlier tries on your player wrote the value 7, which this player does not
+accept. So we still do not know whether a normal region value survives a
+power cycle. This test writes one:
+
+  your player's own region: B
+  this test writes:         1 (Region A)
+
+It does not change the DVD region.
+
+WHAT YOU NEED
+- The BDJ.jar from your earlier attempts, on the USB root. This package
+  does not include it.
+- A Blu-ray with a disc menu (BD-J) to run the script. If the disc is from
+  the other region, the player may show a region message instead of the
+  menu — that is normal, the script still runs.
+- A Region A disc for the playback check.
+
+COPY TO THE USB
+Copy everything in this folder to the root of the USB stick, next to
+BDJ.jar.
+
+RUN 1 — WRITE THE VALUE
+1. Unplug the player's power cord (or switch the socket off). Do not use
+   the remote.
+2. Plug the USB in, plug the player back in and turn it on.
+3. Insert the Blu-ray and wait for the menu (or the region message).
+4. Wait about 30 seconds.
+5. Rename region_log.txt to log-1.txt. Do not edit it.
+6. REGION_FREE_OK.txt must exist. If REGION_FREE_FAILED.txt exists
+   instead, stop here and send both files.
+
+RUN 2 — NORMAL POWER-OFF
+1. Press the power button on the remote and wait until the player is off.
+2. Turn it on, keep the USB in, insert the Blu-ray, wait about 30 seconds.
+3. Open region_log.txt and find the line that starts with "Before:".
+4. Rename region_log.txt to log-2.txt.
+5. If that line ends in BD=0x01, the value survived the power cycle. Try
+   the Region A disc and tell us what the player does (photo of any
+   message).
+
+RUN 3 — ONLY IF RUN 2 SHOWED BD=0x02
+This skips the player's normal shutdown.
+1. Insert the Blu-ray and wait 40 seconds after the menu appears.
+2. Unplug the power cord. Do not use the remote.
+3. Plug it back in, insert the Blu-ray, wait 30 seconds.
+4. Read the "Before:" line in region_log.txt, then rename the file to
+   log-3.txt.
+
+OPTIONAL — DIAGNOSTICS (reads only, changes nothing)
+1. Rename run.sh to run-region.sh.
+2. Rename diag.sh to run.sh.
+3. Do one more run (Run 1 steps 1-3, then wait 30 seconds).
+4. The USB now has a diag_output folder. Send it.
+
+WHAT TO SEND BACK
+- log-1.txt, log-2.txt and, if you did Run 3, log-3.txt
+- REGION_FREE_OK.txt or REGION_FREE_FAILED.txt
+- the diag_output folder, if you ran the diagnostics
+- what happened with the disc from the other region
+- the player model and firmware version, from the player's own menu

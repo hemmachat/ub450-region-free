@@ -13,13 +13,42 @@ echo "Started: $(date)" >> "$LOG"
 
 log() { echo "$1" >> "$LOG"; }
 
-# Byte offset of a key in the config file. `strings` is absent on some players
-# (UK unit, 26 Oct), so search the od hex dump instead — same fallback as run.sh.
+# No `timeout` on any UB450 rootfs (AU/UK/US images), which silently skipped
+# every EEPROM/MTD dump. `<&0` keeps piped stdin (async lists get /dev/null).
+if command -v timeout >/dev/null 2>&1; then
+    tmo() { timeout "$@"; }
+elif command -v sleep >/dev/null 2>&1; then
+    tmo() {
+        _tmo_t="$1"; shift
+        "$@" <&0 & _tmo_p=$!
+        ( sleep "$_tmo_t"; kill -9 "$_tmo_p" 2>/dev/null ) >/dev/null 2>&1 & _tmo_w=$!
+        wait "$_tmo_p" 2>/dev/null; _tmo_rc=$?
+        kill -9 "$_tmo_w" 2>/dev/null
+        wait "$_tmo_w" 2>/dev/null
+        return "$_tmo_rc"
+    }
+else
+    tmo() { shift; "$@"; }
+fi
+
+# Bytes from a file/device as hex. The player rootfs has no `od` at all
+# (AU/UK/US images), so fall back to hexdump, which it does ship.
+hx() { # $1 file, $2 skip, $3 count
+    _hx=$(tmo 3 dd if="$1" bs=1 skip="$2" count="$3" 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+    [ -n "$_hx" ] || _hx=$(tmo 3 dd if="$1" bs=1 skip="$2" count="$3" 2>/dev/null | hexdump -v -e '1/1 "%02x"' 2>/dev/null)
+    printf '%s' "$_hx"
+}
+
+# Byte offset of a key in the config file. The player rootfs has no `strings`
+# and no `od` (AU/UK/US images), so search a hex dump via hexdump — same
+# fallback as run.sh.
 keyoff() {
     _kf=$(od -v -An -tx1 < "$1" 2>/dev/null | tr -cd '0-9a-f')
+    [ -n "$_kf" ] || _kf=$(hexdump -v -e '1/1 "%02x"' < "$1" 2>/dev/null)
     _kk=$(printf '%s' "$2" | od -v -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+    [ -n "$_kk" ] || _kk=$(printf '%s' "$2" | hexdump -v -e '1/1 "%02x"' 2>/dev/null)
     _kb="${_kf%%"$_kk"*}"
-    [ -n "$_kk" ] && [ "$_kb" != "$_kf" ] || return 1
+    [ -n "$_kk" ] && [ -n "$_kf" ] && [ "$_kb" != "$_kf" ] || return 1
     echo $(( ${#_kb} / 2 ))
 }
 
@@ -32,6 +61,9 @@ log "Board: $(cat /proc/device-tree/model 2>/dev/null || grep -m1 'Hardware' /pr
 cat /etc/version >> "$LOG" 2>/dev/null
 cat /etc/firmware_version >> "$LOG" 2>/dev/null
 ls -la /dev/eeprom* /dev/mtd[0-9]* >> "$LOG" 2>&1
+log ""
+log "--- / (acfg and var are symlinks where present) ---"
+ls -la / >> "$LOG" 2>&1
 
 # Model name and country from config
 MODEL_OFF=$(keyoff /acfg/config_file_global.txt IDX_GB_PTT_MODEL_NAME)
@@ -43,7 +75,7 @@ fi
 COUNTRY_OFF=$(keyoff /acfg/config_file_global.txt IDX_GB_PTT_COUNTRYCODE)
 if [ -n "$COUNTRY_OFF" ]; then
     COUNTRY_VOFF=$((COUNTRY_OFF + 36))
-    COUNTRY_VAL=$(dd if=/acfg/config_file_global.txt bs=1 skip=$COUNTRY_VOFF count=4 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f ')
+    COUNTRY_VAL=$(hx /acfg/config_file_global.txt $COUNTRY_VOFF 4)
     log "Country code: $COUNTRY_VAL"
 fi
 
@@ -53,21 +85,21 @@ log "--- Current regions (config file) ---"
 DVD_OFF=$(keyoff /acfg/config_file_global.txt IDX_GB_PTT_REGIONCODE)
 if [ -n "$DVD_OFF" ]; then
     DVD_VOFF=$((DVD_OFF + 36))
-    DVD_VAL=$(dd if=/acfg/config_file_global.txt bs=1 skip=$DVD_VOFF count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+    DVD_VAL=$(hx /acfg/config_file_global.txt $DVD_VOFF 1)
     DVD_DEC=$(printf '%d' "0x${DVD_VAL:-ff}" 2>/dev/null)
     log "DVD region: $DVD_DEC (0x$DVD_VAL)  [0=free 1=US 2=Europe 3=SE-Asia 4=AU 5=Russia 6=China]"
 fi
 BD_OFF=$(keyoff /acfg/config_file_global.txt IDX_GB_PTT_BDREGIONCODE)
 if [ -n "$BD_OFF" ]; then
     BD_VOFF=$((BD_OFF + 36))
-    BD_VAL=$(dd if=/acfg/config_file_global.txt bs=1 skip=$BD_VOFF count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+    BD_VAL=$(hx /acfg/config_file_global.txt $BD_VOFF 1)
     BD_DEC=$(printf '%d' "0x${BD_VAL:-ff}" 2>/dev/null)
     log "BD region:  $BD_DEC (0x$BD_VAL)  [1=A 2=B 4=C 7=all]"
 fi
 IR_OFF=$(keyoff /acfg/config_file_global.txt IDX_GB_PTT_IR_REGIONCODE)
 if [ -n "$IR_OFF" ]; then
     IR_VOFF=$((IR_OFF + 36))
-    IR_VAL=$(dd if=/acfg/config_file_global.txt bs=1 skip=$IR_VOFF count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+    IR_VAL=$(hx /acfg/config_file_global.txt $IR_VOFF 1)
     IR_DEC=$(printf '%d' "0x${IR_VAL:-ff}" 2>/dev/null)
     log "IR region:  $IR_DEC (0x$IR_VAL)"
 fi
@@ -78,7 +110,7 @@ log "--- Current regions (player live) ---"
 LIVE_REGION=""
 # Try cliprog first (direct IPC to bdpprog)
 if [ -x /usr/local/bin/cliprog ]; then
-    LIVE_REGION=$(timeout 3 cliprog app.acfg.rg 2>/dev/null)
+    LIVE_REGION=$(tmo 3 cliprog app.acfg.rg 2>/dev/null)
     [ -n "$LIVE_REGION" ] && log "cliprog app.acfg.rg: $LIVE_REGION"
 fi
 # Try Web CLI if cliprog didn't work
@@ -130,7 +162,7 @@ ls -la /dev/mtd[0-9]* >> "$LOG" 2>&1
 for dev in /dev/eeprom_0 /dev/eeprom_3; do
     if [ -e "$dev" ]; then
         base=$(basename "$dev")
-        timeout 5 dd if="$dev" of="$OUT/$base.bin" bs=4096 count=16 2>/dev/null
+        tmo 5 dd if="$dev" of="$OUT/$base.bin" bs=4096 count=16 2>/dev/null
         sz=$(wc -c < "$OUT/$base.bin" | tr -d ' ')
         log "Dumped $dev: $sz bytes"
         # Search for region key in EEPROM
@@ -146,7 +178,7 @@ done
 for i in 0 1 2 3 4 5; do
     dev="/dev/mtd$i"
     if [ -e "$dev" ]; then
-        timeout 5 dd if="$dev" of="$OUT/mtd${i}.bin" bs=4096 count=16 2>/dev/null
+        tmo 5 dd if="$dev" of="$OUT/mtd${i}.bin" bs=4096 count=16 2>/dev/null
         sz=$(wc -c < "$OUT/mtd${i}.bin" | tr -d ' ')
         log "Dumped $dev: $sz bytes"
         if grep -q "IDX_GB_PTT" "$OUT/mtd${i}.bin" 2>/dev/null; then
@@ -237,11 +269,8 @@ done
 log ""
 log "--- strace bdpprog (5s, file ops) ---"
 if [ -n "$BDPID" ] && [ -x /bin/strace ]; then
-    timeout 5 strace -p "$BDPID" -f -e trace=open,openat,read,write,ioctl -o "$OUT/strace_bdpprog.txt" 2>/dev/null &
-    STPID=$!
-    sleep 5
-    kill $STPID 2>/dev/null
-    wait $STPID 2>/dev/null
+    # tmo runs for the full 5s, then kills strace — no separate sleep/kill.
+    tmo 5 strace -p "$BDPID" -f -e trace=open,openat,read,write,ioctl -o "$OUT/strace_bdpprog.txt" 2>/dev/null
     sz=$(wc -c < "$OUT/strace_bdpprog.txt" 2>/dev/null | tr -d ' ')
     log "Strace captured: $sz bytes"
 else
@@ -255,7 +284,7 @@ if [ -f /acfg/config_file.txt ]; then
     OFF=$(keyoff /acfg/config_file.txt IDX_GB_PTT_REGIONCODE)
     if [ -n "$OFF" ]; then
         VAL_OFF=$((OFF + 36))
-        VAL=$(dd if=/acfg/config_file.txt bs=1 skip=$VAL_OFF count=1 2>/dev/null | od -An -tx1 | tr -cd '0-9a-f')
+        VAL=$(hx /acfg/config_file.txt $VAL_OFF 1)
         log "config_file.txt: IDX_GB_PTT_REGIONCODE at $OFF, value offset $VAL_OFF = 0x$VAL"
     else
         log "config_file.txt: IDX_GB_PTT_REGIONCODE not found"
@@ -263,7 +292,7 @@ if [ -f /acfg/config_file.txt ]; then
     OFF=$(keyoff /acfg/config_file.txt IDX_GB_PTT_BDREGIONCODE)
     if [ -n "$OFF" ]; then
         VAL_OFF=$((OFF + 36))
-        VAL=$(dd if=/acfg/config_file.txt bs=1 skip=$VAL_OFF count=1 2>/dev/null | od -An -tx1 | tr -cd '0-9a-f')
+        VAL=$(hx /acfg/config_file.txt $VAL_OFF 1)
         log "config_file.txt: IDX_GB_PTT_BDREGIONCODE at $OFF, value offset $VAL_OFF = 0x$VAL"
     else
         log "config_file.txt: IDX_GB_PTT_BDREGIONCODE not found"
@@ -281,7 +310,7 @@ log "Scanning /dev/eeprom* and small /dev/mtd* partitions..."
 DIAG_DVD_OFF=$(keyoff /acfg/config_file_global.txt IDX_GB_PTT_REGIONCODE)
 if [ -n "$DIAG_DVD_OFF" ]; then
     DIAG_DVD_VOFF=$((DIAG_DVD_OFF + 36))
-    DIAG_CFG_DVD=$(dd if=/acfg/config_file_global.txt bs=1 skip=$DIAG_DVD_VOFF count=1 2>/dev/null | od -An -tx1 | tr -cd '0-9a-f')
+    DIAG_CFG_DVD=$(hx /acfg/config_file_global.txt $DIAG_DVD_VOFF 1)
     DIAG_CFG_DEC=$(printf '%d' "0x${DIAG_CFG_DVD:-ff}" 2>/dev/null)
     log "Config file DVD region: $DIAG_CFG_DEC (0x$DIAG_CFG_DVD) — EEPROM match expected"
 fi
@@ -294,7 +323,7 @@ for p in /dev/mtd[0-9]*; do
 done
 
 for dev in $DIAG_DEVS; do
-    EEPVAL=$(timeout 3 dd if="$dev" bs=1 skip=512 count=4 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f ')
+    EEPVAL=$(hx "$dev" 512 4)
     EEPBYTE=$(echo "$EEPVAL" | head -c 2)
     EEPDEC=$(printf '%d' "0x${EEPBYTE:-ff}" 2>/dev/null)
     if [ "$EEPDEC" -le 6 ] 2>/dev/null; then
@@ -305,10 +334,10 @@ for dev in $DIAG_DEVS; do
             log "  -> VALID DVD region ($EEPDEC) but doesn't match config ($DIAG_CFG_DEC)"
         fi
         # Also check IR region at 0x205
-        IRVAL=$(timeout 3 dd if="$dev" bs=1 skip=517 count=4 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f ')
+        IRVAL=$(hx "$dev" 517 4)
         log "  offset 0x205 (IR region): $IRVAL"
         # Dump wider area
-        timeout 3 dd if="$dev" bs=1 skip=496 count=32 2>/dev/null | od -An -tx1 > "$OUT/$(basename $dev)_0x1f0.hex" 2>/dev/null
+        hx "$dev" 496 32 > "$OUT/$(basename $dev)_0x1f0.hex" 2>/dev/null
         log "  (bytes 0x1F0-0x20F saved)"
     fi
 done
@@ -323,7 +352,7 @@ else
 fi
 if [ -n "$DVD_KEY_OFF" ]; then
     CFG_DVD_OFF=$((DVD_KEY_OFF + 36))
-    CFG_DVD=$(dd if=/acfg/config_file_global.txt bs=1 skip=$CFG_DVD_OFF count=1 2>/dev/null | od -An -tx1 | tr -cd '0-9a-f')
+    CFG_DVD=$(hx /acfg/config_file_global.txt $CFG_DVD_OFF 1)
     log "Config file DVD region: 0x$CFG_DVD (at offset $CFG_DVD_OFF)"
     log "If EEPROM and config differ, EEPROM wins at boot."
 fi
