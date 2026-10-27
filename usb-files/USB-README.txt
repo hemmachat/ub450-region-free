@@ -1,4 +1,4 @@
-USB contents — region switch v5.9
+USB contents — region switch v5.10
 =================================
 
 Factory limitation: the player cannot be made region-free. It enforces one
@@ -13,6 +13,11 @@ dvd_region.txt      First line: 0 = region-free, 1 = US, 2 = Europe, 3 = SE Asia
                     4 = Australia, 5 = Russia/India, 6 = China.
                     Current value: 1 (US). Make the file empty to skip the
                     DVD change and leave the DVD byte alone.
+DVD_EEPROM          Optional, advanced. An empty file that enables the hardware
+                    EEPROM DVD write. Leave it out: the config file write is the
+                    tested path, and the EEPROM write is unverified. The script
+                    writes the EEPROM only when this file is present, the config
+                    value differs from the target, and exactly one device matches.
 diag.sh             Read-only diagnostics. Copy over run.sh to run it.
 run.validation.sh   Old read/write tester used for the Oct 2026 tests; its logs
                     are validation_log_*.txt and config_run*.bin.

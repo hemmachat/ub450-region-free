@@ -1,5 +1,5 @@
 #!/bin/sh
-# DP-UB450/UB150 Region Switch Script v5.9
+# DP-UB450/UB150 Region Switch Script v5.10
 # Runs automatically when a Blu-ray disc is loaded with BDJ_DEBUG on the USB.
 # Sets Blu-ray to one region code (1=A, 2=B, 4=C) and optionally DVD to a chosen
 # region. Other values fall back to the player's own region; 7 is not a bitmask
@@ -7,11 +7,13 @@
 #
 # 1. Config file write — fast, always works for BD
 # 2. EEPROM direct write — writes DVD region to hardware (offset 0x200)
-#    Scans /dev/eeprom*, /dev/mtd* (char), and sysfs I2C EEPROM paths
+#    Disabled unless a DVD_EEPROM file is on the USB; see the block below.
 
 CONF=${CONF:-/acfg/config_file_global.txt}
 USB=${USB:-/mnt/sda1}
 LOG=$USB/region_log.txt
+# Test hook: a list of fake device paths to scan instead of /dev (used by tests).
+EEPROM_CANDIDATES=${EEPROM_CANDIDATES:-}
 
 # DVD region: 0=free, 1=US, 2=Europe, 3=SE Asia, 4=Australia, 5=Russia/India, 6=China
 # Default: 1 (US). An empty dvd_region.txt (or an empty first line) skips the DVD change.
@@ -33,7 +35,7 @@ fi
 log() { echo "$1" >> "$LOG"; }
 checkpoint() { echo "$1" >> "$LOG"; sync; }
 
-echo "=== UB450 Region Switch v5.9 ===" > "$LOG"
+echo "=== UB450 Region Switch v5.10 ===" > "$LOG"
 log "Started: $(date)"
 log "Kernel: $(uname -a 2>/dev/null)"
 checkpoint "Target: DVD=$DVD_TARGET, BD=$BD_TARGET"
@@ -287,10 +289,21 @@ fi
 # overriding the config file. Writing to EEPROM makes DVD region survive reboot.
 # The EEPROM device is opened via a "fast_init_param" lookup internally;
 # we try known device files. BD region has no EEPROM copy — config file is enough.
+#
+# Safety: this is the only path that writes outside the config file, the device is
+# identified by guessing, and the write has never been verified on real hardware.
+# It runs only when a DVD target differs from the config, a DVD_EEPROM file is on
+# the USB, and exactly one device matches. A second match is treated as ambiguous.
 
 EEPROM_OK=0
 checkpoint "STEP: Starting EEPROM scan"
-if [ -n "$DVD_TARGET" ]; then
+if [ -z "$DVD_TARGET" ]; then
+    log "DVD target empty — EEPROM write skipped"
+elif [ "$DVD_HEX" = "$DVD_EXPECTED" ]; then
+    log "DVD already $DVD_TARGET in config — EEPROM write skipped"
+elif [ ! -f "$USB/DVD_EEPROM" ]; then
+    log "DVD_EEPROM file not on USB — EEPROM write skipped"
+else
     # Read the current DVD region from config file — the EEPROM value must match this,
     # since the firmware loads DVD from EEPROM into config at boot.
     CFG_DVD_DEC=$(printf '%d' "0x${DVD_HEX:-ff}" 2>/dev/null)
@@ -308,22 +321,28 @@ if [ -n "$DVD_TARGET" ]; then
         echo "$MTD_SIZES" | while read _n _s; do [ "$_n" = "$1" ] && echo "$_s" && return; done
     }
 
-    # Collect candidate EEPROM devices: /dev/eeprom*, /dev/mtd[0-9]* (char), sysfs I2C
-    EEPROM_CANDIDATES=""
-    for p in /dev/eeprom*; do [ -e "$p" ] && EEPROM_CANDIDATES="$EEPROM_CANDIDATES $p"; done
-    for p in /dev/mtd[0-9]*; do
-        # Skip mtdblock* (block devices) — use char device only
-        case "$p" in *block*) continue;; esac
-        [ -e "$p" ] || continue
-        # Skip large partitions (> 256KB) — not EEPROM
-        _mtdname=$(basename "$p")
-        _mtdsize=$(mtd_size "$_mtdname")
-        if [ -n "$_mtdsize" ] && [ "$_mtdsize" -gt 262144 ] 2>/dev/null; then
-            continue
-        fi
-        EEPROM_CANDIDATES="$EEPROM_CANDIDATES $p"
-    done
-    for p in /sys/bus/i2c/devices/*/eeprom; do [ -e "$p" ] && EEPROM_CANDIDATES="$EEPROM_CANDIDATES $p"; done
+    if [ -z "$EEPROM_CANDIDATES" ]; then
+        # Collect candidate EEPROM devices: /dev/eeprom*, /dev/mtd[0-9]* (char), sysfs I2C
+        for p in /dev/eeprom*; do [ -e "$p" ] && EEPROM_CANDIDATES="$EEPROM_CANDIDATES $p"; done
+        for p in /dev/mtd[0-9]*; do
+            # Skip mtdblock* (block devices) — use char device only
+            case "$p" in *block*) continue;; esac
+            [ -e "$p" ] || continue
+            # Unknown size means /proc/mtd did not parse; skip rather than guess
+            _mtdname=$(basename "$p")
+            _mtdsize=$(mtd_size "$_mtdname")
+            if [ -z "$_mtdsize" ]; then
+                log "EEPROM $p: size unknown (not in /proc/mtd), skipping"
+                continue
+            fi
+            # Skip large partitions (> 256KB) — not EEPROM
+            if [ "$_mtdsize" -gt 262144 ] 2>/dev/null; then
+                continue
+            fi
+            EEPROM_CANDIDATES="$EEPROM_CANDIDATES $p"
+        done
+        for p in /sys/bus/i2c/devices/*/eeprom; do [ -e "$p" ] && EEPROM_CANDIDATES="$EEPROM_CANDIDATES $p"; done
+    fi
 
     # Dump device info before scanning (in case a dd read hangs)
     log "--- /proc/mtd ---"
@@ -337,6 +356,9 @@ if [ -n "$DVD_TARGET" ]; then
         checkpoint "EEPROM candidates:$EEPROM_CANDIDATES"
     fi
 
+    # Collect matches first; nothing is written until the count is known.
+    EEPROM_MATCHES=""
+    EEPROM_MATCH_COUNT=0
     for EEPROM_DEV in $EEPROM_CANDIDATES; do
         checkpoint "STEP: Trying EEPROM device $EEPROM_DEV"
 
@@ -361,7 +383,7 @@ if [ -n "$DVD_TARGET" ]; then
                 continue
             fi
             # Extra safety for MTD devices: check IR region at 0x205 is also valid (0 or 1)
-            case "$EEPROM_DEV" in /dev/mtd*)
+            case "$EEPROM_DEV" in */mtd[0-9]*)
                 IR_BYTE=$(tmo 3 dd if="$EEPROM_DEV" bs=1 skip=517 count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
                 [ -n "$IR_BYTE" ] || IR_BYTE=$(tmo 3 dd if="$EEPROM_DEV" bs=1 skip=517 count=1 2>/dev/null | hexdump -v -e '1/1 "%02x"' 2>/dev/null)
                 IR_DEC=$(printf '%d' "0x${IR_BYTE:-ff}" 2>/dev/null)
@@ -371,42 +393,50 @@ if [ -n "$DVD_TARGET" ]; then
                 fi
                 log "EEPROM $EEPROM_DEV: IR at 0x205 = $IR_DEC (valid)"
             ;; esac
-            log "EEPROM $EEPROM_DEV: matches config DVD region ($EEPROM_DEC) — this is the DVD EEPROM source"
-
-            checkpoint "STEP: EEPROM match found at $EEPROM_DEV — preparing to write"
-            # Back up original EEPROM value
-            if [ ! -f "$USB/.eeprom_dvd_backup.bin" ]; then
-                tmo 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=4 of="$USB/.eeprom_dvd_backup.bin" 2>/dev/null
-                echo "$EEPROM_DEV" > "$USB/.eeprom_device.txt"
-                log "EEPROM backup saved"
-            fi
-
-            checkpoint "STEP: Writing DVD=$DVD_TARGET to EEPROM $EEPROM_DEV at 0x200"
-            # Write new DVD region as a 4-byte LE value (firmware reads 4 bytes, uses low byte)
-            printf "\\x$(printf '%02x' $DVD_TARGET)\\x00\\x00\\x00" | \
-                tmo 3 dd of="$EEPROM_DEV" bs=1 seek=512 conv=notrunc 2>/dev/null
-            sync
-            checkpoint "STEP: EEPROM write + sync completed"
-
-            # Verify
-            EEPROM_CHECK=$(tmo 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
-            if [ -z "$EEPROM_CHECK" ]; then
-                EEPROM_CHECK=$(tmo 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=1 2>/dev/null | hexdump -v -e '1/1 "%02x"' 2>/dev/null)
-            fi
-            if [ "$EEPROM_CHECK" = "$(printf '%02x' $DVD_TARGET)" ]; then
-                EEPROM_OK=1
-                checkpoint "EEPROM write SUCCEEDED: DVD=$DVD_TARGET at $EEPROM_DEV offset 0x200"
+            log "EEPROM $EEPROM_DEV: matches config DVD region ($EEPROM_DEC) — candidate"
+            if [ -z "$EEPROM_MATCHES" ]; then
+                EEPROM_MATCHES="$EEPROM_DEV"
             else
-                checkpoint "EEPROM write FAILED to verify (got 0x$EEPROM_CHECK, expected $(printf '%02x' $DVD_TARGET))"
-                log "Device may be read-only or need mtd_debug/flash_erase for write"
+                EEPROM_MATCHES="$EEPROM_MATCHES $EEPROM_DEV"
             fi
-            break
+            EEPROM_MATCH_COUNT=$((EEPROM_MATCH_COUNT + 1))
         else
             log "EEPROM $EEPROM_DEV offset 0x200: value $EEPROM_DEC not a valid DVD region (0-6), skipping"
         fi
     done
 
-    if [ "$EEPROM_OK" = "0" ]; then
+    if [ "$EEPROM_MATCH_COUNT" -gt 1 ]; then
+        checkpoint "EEPROM write REFUSED: $EEPROM_MATCH_COUNT devices match ($EEPROM_MATCHES)"
+    elif [ "$EEPROM_MATCH_COUNT" -eq 1 ]; then
+        EEPROM_DEV=${EEPROM_MATCHES%% *}
+        checkpoint "STEP: EEPROM match found at $EEPROM_DEV — preparing to write"
+        # Back up original EEPROM value
+        if [ ! -f "$USB/.eeprom_dvd_backup.bin" ]; then
+            tmo 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=4 of="$USB/.eeprom_dvd_backup.bin" 2>/dev/null
+            echo "$EEPROM_DEV" > "$USB/.eeprom_device.txt"
+            log "EEPROM backup saved"
+        fi
+
+        checkpoint "STEP: Writing DVD=$DVD_TARGET to EEPROM $EEPROM_DEV at 0x200"
+        # Write new DVD region as a 4-byte LE value (firmware reads 4 bytes, uses low byte)
+        printf "\\x$(printf '%02x' $DVD_TARGET)\\x00\\x00\\x00" | \
+            tmo 3 dd of="$EEPROM_DEV" bs=1 seek=512 conv=notrunc 2>/dev/null
+        sync
+        checkpoint "STEP: EEPROM write + sync completed"
+
+        # Verify
+        EEPROM_CHECK=$(tmo 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=1 2>/dev/null | od -An -tx1 2>/dev/null | tr -cd '0-9a-f')
+        if [ -z "$EEPROM_CHECK" ]; then
+            EEPROM_CHECK=$(tmo 3 dd if="$EEPROM_DEV" bs=1 skip=512 count=1 2>/dev/null | hexdump -v -e '1/1 "%02x"' 2>/dev/null)
+        fi
+        if [ "$EEPROM_CHECK" = "$(printf '%02x' $DVD_TARGET)" ]; then
+            EEPROM_OK=1
+            checkpoint "EEPROM write SUCCEEDED: DVD=$DVD_TARGET at $EEPROM_DEV offset 0x200"
+        else
+            checkpoint "EEPROM write FAILED to verify (got 0x$EEPROM_CHECK, expected $(printf '%02x' $DVD_TARGET))"
+            log "Device may be read-only or need mtd_debug/flash_erase for write"
+        fi
+    else
         log "No EEPROM device found with valid DVD region at offset 0x200"
         log "--- /dev/ device listing for debugging ---"
         ls /dev/eeprom* /dev/mtd* /dev/i2c* >> "$LOG" 2>&1 || true
@@ -427,7 +457,7 @@ if [ "$BD_AFTER" = "$BD_EXPECTED" ]; then
     if [ "$EEPROM_OK" = "1" ]; then
         RESULT="DVD=$DVD_TARGET set via EEPROM + config. BD=$BD_TARGET set via config."
     elif [ -n "$DVD_TARGET" ]; then
-        RESULT="BD=$BD_TARGET set via config. DVD=$DVD_TARGET written to config only (may not survive reboot — run diag.sh to help debug)."
+        RESULT="BD=$BD_TARGET set via config. DVD=$DVD_TARGET written to config only (may not survive reboot; EEPROM write disabled — see README)."
     else
         RESULT="BD=$BD_TARGET set via config. DVD unchanged."
     fi

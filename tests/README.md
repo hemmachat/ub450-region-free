@@ -5,7 +5,10 @@ config and USB trees.
 
 - `test_run.sh` — offset detection and read/write helpers (30 assertions).
 - `test_pairwise.sh` — 27-case PICT pairwise suite for the fake config writer (154 assertions).
-- `test_eeprom_pairwise.sh` — 27-case PICT pairwise suite for EEPROM detection, write and restore (96 assertions).
+- `test_eeprom_pairwise.sh` — end-to-end tests for the v5.10 EEPROM guard: opt-in
+  file, no-op skip, single match, ambiguous matches, invalid/mismatched values,
+  IR byte, backup, write and RESTORE (54 assertions). It runs the real `run.sh`
+  against fake device files through the `EEPROM_CANDIDATES` hook and needs `zsh`.
 - `test_targets_pict.sh` — 66-case PICT pairwise suite plus 24 seeded cases for
   `bd_region.txt` / `dvd_region.txt` parsing, validation, writes and RESTORE
   (630 assertions). It runs the real `run.sh` end-to-end and needs `zsh`
