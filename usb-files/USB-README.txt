@@ -29,10 +29,11 @@ How to run it
 -------------
 1. Unplug the player's power cord (or switch the socket off). Do not use the remote.
 2. Plug the USB into the player, plug the player back in and turn it on.
-3. Wait for the home screen, then insert a Blu-ray with BD-J. Let the disc menu
-   load — if only the player's home screen appears, press Top Menu. A region
-   message instead of the disc menu is normal on a disc from another region;
-   the script can still run from that screen.
+3. Wait for the home screen, then insert a Blu-ray with BD-J that the player can
+   play — its current region, or a region-free/A+B disc. Let the disc menu load
+   — if only the player's home screen appears, press Top Menu. A disc from
+   another region may show a region message and never start its Java, so the
+   script does not run from that screen.
 4. Wait about 30 seconds.
 5. Unplug the player's power cord (or switch the socket off). Do not use the remote.
 6. Remove the USB, plug the player back in, turn it on, and test a US disc.

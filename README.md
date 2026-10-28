@@ -25,7 +25,7 @@ Examples from the tested Australian player:
 
 | Disc | Disc region | Set to `1` (A) | Set to `2` (B) |
 |---|---|---|---|
-| The Hurt Locker (Roadshow, AU) | B locked | refused (tested 28 Oct 2026) | expected to play |
+| The Hurt Locker (Roadshow, AU) | B locked | refused (tested 28 Oct 2026) | plays (tested 28 Oct 2026) |
 | Chernobyl (Roadshow, AU) | A+B / region-free | plays (tested 26 Oct 2026) | plays (tested 26 Oct 2026) |
 | Region A locked disc (26 Oct test) | A locked | plays (tested 26 Oct 2026) | refused (tested 26 Oct 2026) |
 | Spiral / Jigsaw (Region A) | A locked | plays (tested 28 Oct 2026) | refused (expected) |
@@ -50,7 +50,7 @@ Examples from the tested Australian player:
 - **DP-UB450 or DP-UB150** (tested on UB450GN, Australia). May also work on UB154, UB159. See "Does this work on other models?" below
 - **A USB drive** (any size, formatted as **FAT32** — most USB drives already are)
 - **A computer** (Mac, Windows with WSL, or Linux)
-- **A Blu-ray disc with BD-J** (to trigger the process) — most major-studio discs. To check on a computer, open the disc and look for a `BDMV/JAR/` folder containing one or more `.jar` files (see "How do I check the disc has BD-J?" below). If the script does not start, try a disc from a different region than the player's current one.
+- **A Blu-ray disc with BD-J that the player can currently play** — same region as its current setting, or a region-free/A+B disc. Most major-studio discs have BD-J; to check on a computer, open the disc and look for a `BDMV/JAR/` folder containing one or more `.jar` files (see "How do I check the disc has BD-J?" below). Do not rely on the disc from the other region you want to play: it can stop at the region-error screen before its Java starts, so the script never runs. If the script does not start, try another playable disc with BD-J.
 - **The firmware update file** (`PANA_DVD.FRM`) — download it from the manufacturer's support site for the UB450 or UB150. You need the file, not to install the update
 - **Python 3** (pre-installed on Mac and most Linux; [python.org](https://www.python.org/downloads/) for Windows)
 - **unsquashfs** — to extract a file from the firmware:
@@ -122,9 +122,9 @@ USB drive (root)
 1. **Unplug the player's power cord** (or switch the socket off at the wall). Do not use the remote or standby.
 2. **Plug the USB drive** into the player's USB port (front or rear — use whichever your model has)
 3. **Plug the player back in, turn it on**, and wait for the home screen (no disc yet)
-4. **Insert a Blu-ray with BD-J** — for example the disc from the other region you want to play. It must be a Blu-ray, not a DVD. The script starts when the disc's Java application (its menu) starts, so **let the disc menu load**; if only the player's home screen appears, press **Top Menu** (or **Menu**) on the remote. Most major-studio discs have BD-J (Disney, Warner, Universal, etc); some boutique labels (Arrow, Criterion, etc) do not. If the player shows a region message instead of the menu, that is normal for a disc from another region — the script can still run from that screen.
-5. **Wait about 30 seconds** after the disc menu (or the region message) appears — the region change happens in the background.
-6. **If no `region_log.txt` appears on the USB afterwards, the script did not run** — try another disc (a disc from a different region works most reliably).
+4. **Insert a Blu-ray with BD-J that the player can currently play** — the same region as its current setting, or a region-free/A+B disc (Chernobyl, A+B, was used in the 28 Oct 2026 test). It must be a Blu-ray, not a DVD. The script starts when the disc's Java application (its menu) starts, so **let the disc menu load**; if only the player's home screen appears, press **Top Menu** (or **Menu**) on the remote. Most major-studio discs have BD-J (Disney, Warner, Universal, etc); some boutique labels (Arrow, Criterion, etc) do not. A disc from another region may show a region message and never start its Java — the script did not run from that screen with The Hurt Locker on 28 Oct 2026.
+5. **Wait about 30 seconds** after the disc menu appears — the region change happens in the background.
+6. **If no `region_log.txt` appears on the USB afterwards, the script did not run** — try another disc the player can play (same region or region-free/A+B) that has BD-J.
 7. **Unplug the player's power cord** (or switch the socket off at the wall). Do not use the remote. Leave it off for a few seconds.
 8. **Remove the USB drive**
 9. **Plug it back in and turn it on**
@@ -160,7 +160,7 @@ The latest [release](https://github.com/hemmachat/ub450-region-switch/releases/l
 
 Copy the contents of the matching folder to the root of your USB stick, next to the `BDJ.jar` you built in step 2. Both packages skip the DVD change, so nothing else is touched. The folder's `TEST-INSTRUCTIONS.txt` has the same steps in plain language.
 
-1. **Run 1 — write the value.** Unplug the player's power cord, insert the USB, plug the player back in and turn it on. Insert a BD-J disc and wait about 30 seconds (a region message instead of the disc menu is normal). Rename `region_log.txt` on the USB to `log-1.txt`.
+1. **Run 1 — write the value.** Unplug the player's power cord, insert the USB, plug the player back in and turn it on. Insert a BD-J disc the player can play (its own region, or region-free/A+B) and wait about 30 seconds. Rename `region_log.txt` on the USB to `log-1.txt`.
 2. **Run 2 — normal power-off.** Press the power button on the remote and wait until the player is off. Turn it on, insert the disc again, wait about 30 seconds. Open `region_log.txt` and find the line starting with `Before:`. Rename the file to `log-2.txt`.
 3. **Run 3 — only if Run 2 shows the old value.** Insert the disc and wait about 40 seconds, then unplug the power cord instead of using the remote. Plug it back in, insert the disc, wait about 30 seconds, and read the `Before:` line again. Rename the file to `log-3.txt`.
 
@@ -278,6 +278,8 @@ No proprietary code is included in this repository. The build script operates on
 Region codes: the player accepts `1` (A), `2` (B) and `4` (C) as single region codes. The values were checked against the [Blu-ray specification (PSR 20)](https://videolan.videolan.me/libbluray/player__settings_8h.html) via libbluray, but playback tests on a UB450GN (26 Oct 2026) show stock firmware does **not** treat the byte as a PSR 20 bitmask: `7` falls back to the player's own region. DVD values follow the [DVD region code standard](https://en.wikipedia.org/wiki/DVD_region_code). The BD-Java debug mode is a standard feature of the CVM runtime used in MediaTek-based Blu-ray players.
 
 ## Changelog
+
+**v5.12 (documentation)** — Corrected the trigger-disc instructions. The script runs from a Blu-ray the player can currently play (same region as its setting, or region-free/A+B) that has BD-J. A disc from another region can stop at the region-error screen before its Java starts: on 28 Oct 2026, The Hurt Locker (B locked) at region A did not run the script; Chernobyl (A+B) did, after which The Hurt Locker played. The playback table now marks The Hurt Locker at `2` as tested.
 
 **v5.11 (documentation)** — Corrected the DVD region 0 claim. Setting `dvd_region.txt` to `0` writes only the config file, and the firmware reads the DVD region from the hardware EEPROM at boot; a region-0 setting has not been verified to play discs from other regions on these players. v3.2 recorded region 0 failing, the EEPROM copy has never been written on any logged unit, and no DVD playback test exists for any value. The script is unchanged from v5.10; `DVD_EEPROM` is still the only way to write the EEPROM copy, and that path remains unverified. The Blu-ray ambiguity from 26 Oct is also closed: a locked region B disc (The Hurt Locker, Roadshow) refuses at `1` on the AU UB450, so the player has no own-region allowance; the Chernobyl disc that played at `1` must be region-free/A+B. `1` = A only and `2` = B only on both the AU UB450 and the EU UB150. The README now includes a playback examples table for the tested player.
 

@@ -14,10 +14,10 @@ run; the log's `Mode:` line says what that run did.
 - The player must be unplugged (power cord out — not the remote or standby) before
   you plug in or remove the USB. Never hot-plug the stick.
 - Edit `bd_region.txt` on the computer, save, eject the stick, then take it to the player.
-- A "run" only happens if a Blu-ray with BD-J starts. Use the trigger disc that
-  worked before. If no new `validation_log_N.txt` appears, try a disc from the
-  other region — the EU user found a mismatched disc triggers the script and a
-  same-region disc did not.
+- A "run" only happens if a Blu-ray with BD-J starts. Use a disc the player can
+  play at its current value (same region or region-free/A+B). A mismatched disc
+  may show the region error and never start its Java — The Hurt Locker did not
+  trigger at BD=1 on 28 Oct 2026, while Chernobyl (A+B) did.
 
 ## Step 1 — read the current value (no write)
 
@@ -25,8 +25,9 @@ run; the log's `Mode:` line says what that run did.
 2. Eject the USB.
 3. Player unplugged → plug in the USB → plug the player back in and turn it on.
 4. Wait for the home screen (~20–30 s). Do not insert a disc yet.
-5. Insert the trigger disc. Wait about 1 minute. The script runs in the first
-   seconds; the disc plays or shows a region error — either is fine.
+5. Insert the trigger disc: a disc the player can play at its current value
+   (same region or region-free/A+B) with BD-J. Wait about 1 minute. A region
+   error means the script may not run — use a playable disc instead.
 6. Power the player off. Remove the USB. Plug it into the computer.
 7. Check the newest `validation_log_<N>.txt`: it should say `Mode: read` and
    `Before: DVD=0x.., BD=0x..`. That is the player's current value.
@@ -49,8 +50,9 @@ For each value:
 12. On the computer, set the first line of `bd_region.txt` to the value (e.g. `1`).
     Save and eject.
 13. Player unplugged → plug in the USB → plug it back in and turn it on → wait for the home screen.
-14. Insert the trigger disc. If the last value was `1`, use a B disc; if it was
-    `2` or `7`, use an A disc; if a run does not start, try the other region.
+14. Insert the trigger disc: a disc the player can play at its current value
+    (the last value written, or the factory value for the first run; region-free/A+B
+    also works) with BD-J. If a run does not start, try another playable disc.
     Wait ~1 minute.
 15. Power the player off. Remove the USB from the player, but keep it out.
 16. Power the player on and off once so the new value is loaded at startup

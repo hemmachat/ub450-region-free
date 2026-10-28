@@ -14,9 +14,9 @@ It does not change the DVD region.
 WHAT YOU NEED
 - The BDJ.jar from your earlier attempts, on the USB root. This package
   does not include it.
-- A Blu-ray with a disc menu (BD-J) to run the script. If the disc is from
-  the other region, the player may show a region message instead of the
-  menu — that is normal, the script still runs.
+- A Blu-ray with a disc menu (BD-J) that the player can play — your own
+  region, or a region-free/A+B disc. A disc from another region may show a
+  region message and never start its Java, so the script does not run.
 - A Region A disc for the playback check.
 
 COPY TO THE USB
@@ -27,7 +27,7 @@ RUN 1 — WRITE THE VALUE
 1. Unplug the player's power cord (or switch the socket off). Do not use
    the remote.
 2. Plug the USB in, plug the player back in and turn it on.
-3. Insert the Blu-ray and wait for the menu (or the region message).
+3. Insert the Blu-ray and wait for the menu.
 4. Wait about 30 seconds.
 5. Rename region_log.txt to log-1.txt. Do not edit it.
 6. REGION_FREE_OK.txt is written at the end, but the player can stop the
