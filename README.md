@@ -2,11 +2,37 @@
 
 Switch your **Blu-ray and DVD region** on a DP-UB450, DP-UB150, or similar MediaTek-based player. No soldering, no permanent changes. Fully reversible.
 
-The tool sets the player to **one Blu-ray region** (1 = A, 2 = B, 4 = C). Stock firmware has no "all regions" value: other values, including `7`, fall back to the player's own region. Region A and region B are separate settings — set `1` to play A discs, `2` to switch back to region B. Whether a B disc also plays while the player is set to `1` is not confirmed; on the EU player tested, it did not.
+The tool sets the player to **one Blu-ray region** (1 = A, 2 = B, 4 = C). Stock firmware has no "all regions" value: other values, including `7`, fall back to the player's own region. Region A and region B are separate settings — set `1` to play A discs, `2` to switch back to region B. A locked region B disc does not play while the player is set to `1` (tested on the AU UB450 with The Hurt Locker and on the EU UB150); a B disc that does play at `1` is region-free or A+B.
 
 > **Factory limitation — the player cannot be made region-free.** As manufactured, the firmware enforces **one Blu-ray region at a time**. This tool changes which one; there is no value that enables A+B+C, and `7` is not an "all regions" code (the player falls back to its own region). True region-free playback requires modified player firmware, which this project does not provide.
 
 Tested on a DP-UB450GN (Australia) with firmware V127 - 26 Oct 2026. See "Does this work on other models?" below for UB150, UB154, UB159, UB820, and UB9000.
+
+## What plays at which setting
+
+A disc plays only when its region matches the setting, or when the disc is region-free/A+B. One region at a time — there is no setting that plays everything.
+
+| Disc type | Set to `1` (A) | Set to `2` (B) |
+|---|---|---|
+| Region A locked | plays | refused |
+| Region B locked | refused | plays |
+| Region A+B or region-free | plays | plays |
+| Region C locked | refused | refused |
+
+Region C was not tested on this player; the row follows the same single-region rule.
+
+Examples from the tested Australian player:
+
+| Disc | Disc region | Set to `1` (A) | Set to `2` (B) |
+|---|---|---|---|
+| The Hurt Locker (Roadshow, AU) | B locked | refused (tested 28 Oct 2026) | expected to play |
+| Chernobyl (Roadshow, AU) | A+B / region-free | plays (tested 26 Oct 2026) | plays (tested 26 Oct 2026) |
+| Region A locked disc (26 Oct test) | A locked | plays (tested 26 Oct 2026) | refused (tested 26 Oct 2026) |
+| Spiral / Jigsaw (Region A) | A locked | plays (tested 28 Oct 2026) | refused (expected) |
+| Re-Animator (Umbrella, AU) | B locked | refused (expected) | plays (expected) |
+| Wolf Creek (Roadshow, AU) | B locked | refused (expected) | plays (expected) |
+
+"Expected" rows follow the same rule but have not been logged on this player. A B disc that plays at `1` is region-free or A+B — that is the disc, not the player.
 
 > **Known limitation:** on some UK, US and EU units the Blu-ray region is written successfully but the player shows the original value again after a clean power-off (confirmed with v5.7 on a UK player, 26 Oct 2026). v5.7 and later log `Config write VERIFIED`; if the next run's `Before:` line shows the old value, the player replaced it. The steps below unplug the player instead of using the remote, because a clean power-off lets those units write their old value back; an EU user confirmed that unplugging keeps the change, and the Australian player did not rewrite the value in the 27 Oct 2026 probe, so unplugging is harmless there. US and UK testers are confirming the one-time unplug flow.
 
@@ -198,7 +224,7 @@ v5.7 and later log `Config write VERIFIED` when the new value is in the config f
 
 No. The factory firmware accepts **one Blu-ray region at a time**. This tool switches that region (1 = A, 2 = B, 4 = C) — it does not unlock all regions, and `7` falls back to the player's own region. Set the region of the discs you want to watch, run the tool, and switch back to your own region when you are done (2 on a B player, 1 on an A player). True region-free playback needs modified player firmware, which this project does not provide or install.
 
-DVD is different: DVD region 0 (region-free) works for most DVDs — set `dvd_region.txt` to `0`. A few older RCE DVDs may still refuse a region-0 player.
+DVD uses one region number (0–6); `0` is the region-free value. This is **not verified** on these players: the firmware reads the DVD region from the hardware EEPROM at boot, and the EEPROM copy is only written when the advanced `DVD_EEPROM` file is on the USB. Setting `dvd_region.txt` to `0` changes only the config file, which the player may override at boot. A few older RCE DVDs also refuse a region-0 player.
 
 ### Does this work on other models?
 
@@ -252,6 +278,8 @@ No proprietary code is included in this repository. The build script operates on
 Region codes: the player accepts `1` (A), `2` (B) and `4` (C) as single region codes. The values were checked against the [Blu-ray specification (PSR 20)](https://videolan.videolan.me/libbluray/player__settings_8h.html) via libbluray, but playback tests on a UB450GN (26 Oct 2026) show stock firmware does **not** treat the byte as a PSR 20 bitmask: `7` falls back to the player's own region. DVD values follow the [DVD region code standard](https://en.wikipedia.org/wiki/DVD_region_code). The BD-Java debug mode is a standard feature of the CVM runtime used in MediaTek-based Blu-ray players.
 
 ## Changelog
+
+**v5.11 (documentation)** — Corrected the DVD region 0 claim. Setting `dvd_region.txt` to `0` writes only the config file, and the firmware reads the DVD region from the hardware EEPROM at boot; a region-0 setting has not been verified to play discs from other regions on these players. v3.2 recorded region 0 failing, the EEPROM copy has never been written on any logged unit, and no DVD playback test exists for any value. The script is unchanged from v5.10; `DVD_EEPROM` is still the only way to write the EEPROM copy, and that path remains unverified. The Blu-ray ambiguity from 26 Oct is also closed: a locked region B disc (The Hurt Locker, Roadshow) refuses at `1` on the AU UB450, so the player has no own-region allowance; the Chernobyl disc that played at `1` must be region-free/A+B. `1` = A only and `2` = B only on both the AU UB450 and the EU UB150. The README now includes a playback examples table for the tested player.
 
 **v5.10** — The DVD EEPROM write is now off by default. It is the only path that writes outside the config file, the device is identified by guessing, and it has never run on real hardware (every v5.9 log stops before it). It now requires an empty `DVD_EEPROM` file on the USB, is skipped when the config already holds the target, refuses to write when more than one device matches, and skips MTD partitions whose size `/proc/mtd` does not report. The config file write and RESTORE are unchanged.
 
