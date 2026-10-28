@@ -6,7 +6,8 @@
 # 1 = Region A (Americas, Japan, Korea, SE Asia)
 # 2 = Region B (Europe, Australia, Africa, Oceania)
 # 4 = Region C (Central/South Asia, Russia, China)
+# 3 = only for the per-disc helper (see the README)
 #
-# The tool accepts only 1, 2 and 4. 7 does not make the player region-free —
-# it falls back to your own region. Delete this file to keep the default (1 = A).
-# To switch back to region B, set 2.
+# The player stores any value; for values it does not recognise it uses its
+# own region, so 7 is not "all regions". Delete this file to keep the
+# default (1 = A). To switch back to region B, set 2.

@@ -1,9 +1,9 @@
 #!/bin/sh
-# DP-UB450/UB150 Region Switch Script v5.10
+# DP-UB450/UB150 Region Switch Script v5.13
 # Runs automatically when a Blu-ray disc is loaded with BDJ_DEBUG on the USB.
-# Sets Blu-ray to one region code (1=A, 2=B, 4=C) and optionally DVD to a chosen
-# region. Other values fall back to the player's own region; 7 is not a bitmask
-# (see firmware-analysis.md §12).
+# Sets Blu-ray to one region code (1=A, 2=B, 4=C); 3 is written only for the
+# per-disc helper. Any other value falls back to the player's own region,
+# 7 included (see firmware-analysis.md §12).
 #
 # 1. Config file write — fast, always works for BD
 # 2. EEPROM direct write — writes DVD region to hardware (offset 0x200)
@@ -18,8 +18,8 @@ EEPROM_CANDIDATES=${EEPROM_CANDIDATES:-}
 # DVD region: 0=free, 1=US, 2=Europe, 3=SE Asia, 4=Australia, 5=Russia/India, 6=China
 # Default: 1 (US). An empty dvd_region.txt (or an empty first line) skips the DVD change.
 DVD_TARGET=1
-# BD region: 1=A, 2=B, 4=C. Other values fall back to the player's own region;
-# 7 is not a bitmask on stock firmware.
+# BD region: 1=A, 2=B, 4=C; 3 only for the per-disc helper. Any other value
+# falls back to the player's own region, 7 included.
 BD_TARGET=1
 
 # Allow override from USB file
@@ -35,7 +35,7 @@ fi
 log() { echo "$1" >> "$LOG"; }
 checkpoint() { echo "$1" >> "$LOG"; sync; }
 
-echo "=== UB450 Region Switch v5.10 ===" > "$LOG"
+echo "=== UB450 Region Switch v5.13 ===" > "$LOG"
 log "Started: $(date)"
 log "Kernel: $(uname -a 2>/dev/null)"
 checkpoint "Target: DVD=$DVD_TARGET, BD=$BD_TARGET"
@@ -215,9 +215,9 @@ fi
 # Validate the targets only on the write path. RESTORE must still work when
 # bd_region.txt or dvd_region.txt are invalid or left over from older versions.
 case "$BD_TARGET" in
-    1|2|4) ;;
+    1|2|3|4|5|6) ;;
     *)
-        log "ERROR: BD region must be 1 (A), 2 (B) or 4 (C) — got [$BD_TARGET]"
+        log "ERROR: BD region must be 1 (A), 2 (B), 4 (C), or 3 for the per-disc helper — got [$BD_TARGET]"
         echo "FAILED — invalid BD region" > "$USB/REGION_FREE_FAILED.txt"
         exit 1
         ;;
@@ -314,7 +314,9 @@ else
     MTD_SIZES=""
     if [ -f /proc/mtd ]; then
         MTD_SIZES=$(while IFS=': ' read name size erasesize rest; do
-            case "$name" in mtd[0-9]*) printf '%s %d\n' "$name" "0x$size" 2>/dev/null;; esac
+            [ "${name#mtd}" = "$name" ] && continue
+            [ -n "$size" ] || continue
+            printf '%s %d\n' "$name" "0x$size"
         done < /proc/mtd)
     fi
     mtd_size() {

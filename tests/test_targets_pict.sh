@@ -2,8 +2,8 @@
 # End-to-end tests for run.sh target selection, write validation and RESTORE.
 # Cases generated with Microsoft PICT (pairwise, 66 cases) from this model:
 #
-#   bd_file:  missing, value1, value2, value4, seven, empty, text,
-#             leadzero, padded, crlf, ten
+#   bd_file:  missing, value1, value2, value3, value4, value5, value6,
+#             seven, empty, text, leadzero, padded, crlf, ten
 #   dvd_file: missing, empty, value1, value6, value8, text
 #   restore:  no, with_backup, without_backup
 #   config:   valid, no_bd_key, no_dvd_key
@@ -59,6 +59,9 @@ mkfiles() { # $1 dir, $2 bd kind, $3 dvd kind, $4 restore kind
         value1) printf '1\n' > "$1/bd_region.txt" ;;
         value2) printf '2\n' > "$1/bd_region.txt" ;;
         value4) printf '4\n' > "$1/bd_region.txt" ;;
+        value3) printf '3\n' > "$1/bd_region.txt" ;;
+        value5) printf '5\n' > "$1/bd_region.txt" ;;
+        value6) printf '6\n' > "$1/bd_region.txt" ;;
         seven) printf '7\n' > "$1/bd_region.txt" ;;
         zero) printf '0\n' > "$1/bd_region.txt" ;;
         three) printf '3\n' > "$1/bd_region.txt" ;;
@@ -205,9 +208,12 @@ s18|value1|value1|without_backup|valid|0|02|04|RESTORE_FAILED
 s19|value1|value1|with_backup|no_bd_key|1|00|04|FAILED
 s20|seven|value8|without_backup|no_dvd_key|1|02|00|FAILED
 s21|zero|value1|no|valid|1|02|04|FAILED
-s22|three|value1|no|valid|1|02|04|FAILED
+s22|three|value1|no|valid|0|03|01|OK
 s23|v255|value1|no|valid|1|02|04|FAILED
 s24|value1|doublezero|no|valid|0|01|00|OK
+b01|value3|value1|no|valid|0|03|01|OK
+b02|value5|value1|no|valid|0|05|01|OK
+b03|value6|value1|no|valid|0|06|01|OK
 CASES
 
 echo ""

@@ -1,18 +1,52 @@
-USB contents — region switch v5.10
+USB contents — region switch v5.13
 =================================
 
-Factory limitation: the player cannot be made region-free. It enforces one
-Blu-ray region at a time (1 = A, 2 = B, 4 = C); 7 does not unlock all regions
-and falls back to the player's own region.
+Factory limitation: the player enforces one Blu-ray region at a time
+(1 = A, 2 = B, 4 = C). A locked disc compares the player's region register
+with its own region and refuses anything else, so one value cannot satisfy
+an A disc and a B disc at once.
 
+PER-DISC REGION (no restart)
+----------------------------
+With the config byte at 3, the player starts a disc of either region, and
+BDJ.jar sets the region register about 10 seconds after the disc starts to
+the first line of psr20_value.txt:
+
+  1 = region A (Jigsaw)      2 or 7 = region B (The Hurt Locker)
+  4 = region C (not tested)  7 also plays A+B discs such as Chernobyl
+
+The first run must leave the config byte at 3 (bd_region.txt = 3).
+
+Steps to switch:
+1. Eject the disc.
+2. Pull the USB out of the player.
+3. On a computer, set the first line of psr20_value.txt. Save.
+4. Eject the USB from the computer, put it back in the player.
+5. Insert the disc; the film starts about 10 seconds later.
+No power cycle is needed. Keep the USB in the player while watching.
+
+This applies to Blu-ray only. DVDs switch differently:
+1. Set dvd_region.txt (0=free, 1=US, 2=Europe, 3=SE Asia, 4=Australia,
+   5=Russia/India, 6=China) and put this USB in the player.
+2. Insert a Blu-ray with BD-J that the player can play (a DVD cannot run
+   run.sh). Wait ~30 s for "Config write VERIFIED".
+3. Unplug the player at the wall, power on, insert the DVD.
+
+BDJ-region-helper.jar
+                    Advanced per-disc helper. Copy it to the stick as
+                    BDJ.jar, replacing the tool's BDJ.jar (only one of the
+                    two can be there at a time). See PER-DISC REGION above.
 run.sh              Release script. Writes bd_region.txt to the Blu-ray byte and
                     dvd_region.txt to the DVD byte, verifies, then logs.
 bd_region.txt       First line: 1 = Region A, 2 = Region B, 4 = Region C.
-                    Current value: 1 (Region A).
+                    3 is written as-is; the player then treats it as its own
+                    region, which is what the per-disc hook above needs.
+psr20_value.txt     Per-disc region for the hook above (1, 2, 4 or 7).
+                    Read when a disc starts; no restart needed.
 dvd_region.txt      First line: 0 = region-free, 1 = US, 2 = Europe, 3 = SE Asia,
                     4 = Australia, 5 = Russia/India, 6 = China.
-                    Current value: 1 (US). Make the file empty to skip the
-                    DVD change and leave the DVD byte alone.
+                    Default: 1 (US). Make the file empty to skip the DVD
+                    change and leave the DVD byte alone.
 DVD_EEPROM          Optional, advanced. An empty file that enables the hardware
                     EEPROM DVD write. Leave it out: the config file write is the
                     tested path, and the EEPROM write is unverified. The script

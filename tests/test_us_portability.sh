@@ -17,6 +17,13 @@ check() {
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 RUN="$ROOT/usb-files/run.sh"
 command -v zsh >/dev/null 2>&1 || { echo "SKIP: zsh not found"; exit 0; }
+
+# run.sh must parse under bash as /bin/sh: the player's /bin/sh is bash, and
+# macOS ships bash 3.2, which rejects `;;` straight after a redirection.
+if command -v bash >/dev/null 2>&1; then
+    bash -n "$RUN" 2>/dev/null
+    check "run.sh parses under bash" "$?" "0"
+fi
 T=$(mktemp -d "$ROOT/tests/.us.XXXXXX") || exit 1
 trap 'rm -rf "$T"' EXIT INT TERM
 
