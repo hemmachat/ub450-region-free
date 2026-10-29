@@ -76,6 +76,29 @@ The script will:
 
 You should see output ending with `Done.` and a SHA-256 hash.
 
+## Make the USB automatically (optional)
+
+`make-usb.py` asks a couple of questions and writes the stick for either
+method, checking every copied file against the repository by SHA-256:
+
+```sh
+python3 make-usb.py
+```
+
+- **Method 1:** choose `1`; it asks for the USB path and the region value
+  (default `1`).
+- **Method 2:** choose `2`; it asks for the Blu-ray region and the DVD region
+  (or `skip`) and copies `usb-files/BDJ.jar` — build it first (common step 2),
+  or pass `--jar /path/to/BDJ.jar`.
+
+It never deletes anything, and it only overwrites existing files after you
+confirm — `--yes` skips that prompt for scripted use:
+`python3 make-usb.py --method 1 --usb /Volumes/USB --yes` (Method 1) or
+`--method 2 --bd 2 --dvd skip --yes` (Method 2).
+
+This needs Python 3, which Method 1 does not otherwise require — the manual
+copy in its setup section does the same thing.
+
 ## Method 1 — play both regions (recommended)
 
 One value, `1`, plays the tested locked region A disc **and** the tested locked
@@ -84,7 +107,7 @@ put the stick in and play. The USB stays in the player while you watch.
 
 ### Set up the USB (once)
 
-This method does not need the `BDJ.jar` you would build: it uses the helper jar that ships in the repository.
+This method does not need the `BDJ.jar` you would build: it uses the helper jar that ships in the repository. (Or let [make-usb.py](#make-the-usb-automatically-optional) copy the files for you.)
 
 | File on the stick | Value |
 |---|---|
@@ -190,7 +213,8 @@ time: to play the other region, run it again.
 ### Set up the USB
 
 Format the USB drive as **FAT32**. Copy these files from `usb-files/` to the
-**root** of the stick:
+**root** of the stick (or let [make-usb.py](#make-the-usb-automatically-optional)
+do it, after building `BDJ.jar`):
 
 - `BDJ_DEBUG` (an empty file — do not open or edit it)
 - `BDJ.jar` (the file you built in common step 2)
@@ -498,11 +522,42 @@ It requires Python 3 and `unsquashfs`. If you already have `BDJ.czf` extracted, 
 
 No proprietary code is included in this repository. The build script operates on files you obtain from your own player's firmware.
 
+## Tests
+
+Run every suite from the repository root:
+
+```sh
+sh tests/test_run.sh                     # offsets and region write logic
+sh tests/test_pairwise.sh                # pairwise target selection
+sh tests/test_targets_pict.sh            # 651-check PICT suite (slow)
+sh tests/test_eeprom_pairwise.sh         # DVD EEPROM guards
+sh tests/test_us_portability.sh          # bash -n portability
+sh tests/test_tmo.sh                     # timeout wrapper fallback
+
+python3 tests/test_setup_usb.py          # make-usb.py: both layouts, refusals
+python3 tests/test_build_py.py           # build/build.py: patch, exec, jar
+python3 tests/test_downgrade_class.py    # downgrade_class.py: class 48
+python3 tests/test_build_inprocess.py    # probe injection: static go()
+python3 tests/test_diag_sh.py            # diag.sh: writes only to the USB
+python3 testing/inprocess-experiment/tests/test_regionpatch_value.py
+testing/inprocess-experiment/tests/run.sh  # probe suite
+python3 testing/usb-agent/test_agent.py    # agent scripts
+```
+
+The tests need `python3`, `javac`/`javap` for the class-file suites, and a
+shell. They do not need a player or a firmware file.
+
 ## Credits
 
 Region codes: the player accepts `1` (A), `2` (B) and `4` (C) as single region codes. The values were checked against the [Blu-ray specification (PSR 20)](https://videolan.videolan.me/libbluray/player__settings_8h.html) via libbluray, but playback tests on a UB450GN (26 Oct 2026) show stock firmware does **not** treat the byte as a PSR 20 bitmask: `7` falls back to the player's own region. DVD values follow the [DVD region code standard](https://en.wikipedia.org/wiki/DVD_region_code). The BD-Java debug mode is a standard feature of the CVM runtime used in MediaTek-based Blu-ray players.
 
 ## Changelog
+
+**v5.15 (29 Oct 2026)** — guided USB builder, a `diag.sh` fix and unit tests.
+
+- New `make-usb.py`: asks which method and the values, writes the stick for Method 1 or Method 2, and checks every copied file against the repository by SHA-256. Refuses values above `7`, invalid regions, a missing USB path and a missing `BDJ.jar`. See [Make the USB automatically](#make-the-usb-automatically-optional).
+- `usb-files/diag.sh` now honours a `USB` override (`USB=${USB:-/mnt/sda1}`); it used to hard-set the player path and write its marker outside the chosen folder. Same behaviour on the player.
+- Unit tests for every script that had none: `build/build.py` (permission flip, `Runtime.exec` injection, jar packaging), `downgrade_class.py` (class 48, StackMapTable removed), `build_inprocess.add_probe_call` (static `go()` entry point, the 29 Oct blank-screen bug), `diag.sh` (completes, writes only to the USB folder) and `make-usb.py` (both layouts, refusals, no overwrite without confirmation). Each was mutation-proved. See [Tests](#tests).
 
 **v5.14 (29 Oct 2026)** — per-disc helper default and the measured single-value result.
 

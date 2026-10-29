@@ -1,4 +1,4 @@
-USB contents — region switch v5.14
+USB contents — region switch v5.15
 =================================
 
 Factory limitation: the player stores one Blu-ray region code at a time

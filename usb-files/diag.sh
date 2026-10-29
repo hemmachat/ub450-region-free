@@ -3,7 +3,7 @@
 # Runs on the player via the same BD-Java debug mode as run.sh.
 # Saves everything to USB under diag_output/.
 
-USB=/mnt/sda1
+USB=${USB:-/mnt/sda1}
 OUT=$USB/diag_output
 LOG=$OUT/diag_log.txt
 
