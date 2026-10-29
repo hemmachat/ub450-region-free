@@ -447,14 +447,13 @@ Region codes: the player accepts `1` (A), `2` (B) and `4` (C) as single region c
 
 ## Changelog
 
-**Unreleased (documentation)** — Added a reference section, "Something not working? Send us these files": every file the tool writes to the USB, what each one contains, and which to send for each symptom (script did nothing, region reverted after a power-off, wrong values from the start, DVD/EEPROM, per-disc helper, general). The US/UK test protocol now asks for `.config_dump.bin` saved per run (`dump-1.bin` …), because it is overwritten every run. `USB-README.txt` lists the written files in the same way.
-
 **v5.13 (29 Oct 2026)** — Blu-ray values and documentation.
 
 - `bd_region.txt` now accepts `3`, `5` and `6` as well as `1`, `2` and `4`. The player stores any of them but uses its own region for values it does not recognise; `3` is the value the per-disc helper needs. The error message lists `1`/`2`/`4` (and `3` for the helper) only.
 - Fixed a shell portability bug: the MTD size parsing used a `case` pattern inside `$( )`, which bash 3.2 rejects, so `bash -n` failed on the script. Rewritten without `case`; `tests/test_us_portability.sh` now checks `bash -n`.
 - Documented the per-disc Blu-ray helper (README, `USB-README.txt`): with the region set to `3`, a BD-J jar sets the region register from `psr20_value.txt` about 10 seconds after a disc starts. Tested 29 Oct 2026: Jigsaw (locked A) with `1`, The Hurt Locker (locked B) with `7`, Chernobyl (A+B) with any value; no restart needed. The helper jar ships as `usb-files/BDJ-region-helper.jar` (copy it as `BDJ.jar` instead of the tool's).
 - README restructured into one step-by-step flow, with separate Blu-ray and DVD value tables. The measured behaviour of each value is in `docs/region-bitmask-finding.md`.
+- Added the reference section "Something not working? Send us these files": every file the tool writes to the USB, what each contains, and which to send for each symptom (stopped early, region reverted after a power-off, wrong values, DVD/EEPROM, per-disc helper, general). The US/UK protocol now saves `.config_dump.bin` per run (`dump-1.bin` …), because it is overwritten every run; `patch_result.txt` is documented for the helper; `USB-README.txt` lists the written files.
 - Tests: target selection 651 checks, pairwise 154, EEPROM 54, offset/write 30, US portability 6, TMO 4, agent scripts 8.
 
 **v5.12 (documentation)** — Corrected the trigger-disc instructions. The script runs from a Blu-ray the player can currently play (same region as its setting, or region-free/A+B) that has BD-J. A disc from another region can stop at the region-error screen before its Java starts: on 28 Oct 2026, The Hurt Locker (B locked) at region A did not run the script; Chernobyl (A+B) did, after which The Hurt Locker played. The playback table now marks The Hurt Locker at `2` as tested.

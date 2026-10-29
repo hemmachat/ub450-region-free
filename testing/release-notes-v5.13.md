@@ -10,11 +10,17 @@ v5.13 is a tool and documentation release. `run.sh` changes:
 Documentation:
 - README restructured into a single step-by-step flow. Blu-ray and DVD values
   have separate tables in Step 3. The measured behaviour of each value is in
-  `analysis/region-bitmask-finding.md`.
+  `docs/region-bitmask-finding.md`.
 - `USB-README.txt` gains the per-disc section, the value table and the DVD
   steps.
+- New reference section "Something not working? Send us these files": every
+  file the tool writes to the USB, what each contains, and which to send for
+  each symptom (stopped early, region reverted, wrong values, DVD/EEPROM,
+  per-disc helper, general), plus the hidden dot-file names. The US/UK test
+  protocol now saves `.config_dump.bin` per run (`dump-1.bin` …), because it
+  is overwritten every run. `patch_result.txt` is documented for the helper.
 
-Per-disc Blu-ray helper (documented, not shipped in this zip):
+Per-disc Blu-ray helper (shipped as `usb-files/BDJ-region-helper.jar`):
 - With the region set to `3`, a BD-J jar sets the region register from
   `psr20_value.txt` about 10 seconds after a disc starts. Tested 29 Oct 2026:
   Jigsaw (locked A) with `1`, The Hurt Locker (locked B) with `7`, Chernobyl
@@ -28,8 +34,8 @@ Per-disc Blu-ray helper (documented, not shipped in this zip):
 Tests: target selection 651 checks, pairwise 154, EEPROM guards 54,
 offset/write 30, US portability 6, TMO 4, agent scripts 8.
 
-Asset: `ub450-region-switch-v5.13.zip` (1,183,465 bytes), SHA-256
-`9aa6470a3dfc44677f67d5cf6a0a7b5357b425a4adcf64dc2b4ba64b86bdc0b5`.
+Asset: `ub450-region-switch-v5.13.zip` (1,186,616 bytes), SHA-256
+`a9faabc5d6af1a898392fd7c95c3c9dba30fa658eee92c2dc417febc87e6c0d0`.
 
 Contents: `README.md`, `build/build.py`, `usb-files/` (the USB files plus
 `BDJ-region-helper.jar`; the prebuilt tool `BDJ.jar` is not included, users
