@@ -146,7 +146,7 @@ Plug the USB drive back into your computer. The main file is **`region_log.txt`*
 - **`REGION_FREE_OK.txt`** — the script reached the end. It contains the result line. This file can be missing if the player stopped the script early; that alone does not mean the region change failed.
 - **`REGION_FREE_FAILED.txt`** — something went wrong. Check `region_log.txt` and the `diag_output/` folder on the USB for details — attach them to an issue if you need help.
 
-The file `region_log.txt` has a full log of what happened, including your original region values (backed up automatically). The script also saves `.config_dump.bin` (a copy of the player's config file) on every run. It is overwritten each time, so copy it off the USB after each run if you are helping with diagnostics.
+The file `region_log.txt` has a full log of what happened, including your original region values (backed up automatically). The script also saves `.config_dump.bin` (a copy of the player's config file) on every run. It is overwritten each time, so copy it off the USB after each run if you are helping with diagnostics. The full list of files the tool writes, and which ones to send if something goes wrong, is in [Something not working? Send us these files](#something-not-working-send-us-these-files).
 
 ### 6. Test
 
@@ -198,6 +198,12 @@ Keep the normal tool files too if you still want to run it.
 Tested on the Australian UB450: Jigsaw (locked A) plays with `1`, The Hurt
 Locker (locked B) plays with `7`, Chernobyl (A+B) plays with any value. A
 locked A disc needs exactly `1`; `7` is refused by that disc.
+
+The helper writes **`patch_result.txt`** on the stick each time a disc starts,
+with the region it read before and after the change (`get20 before=`,
+`value file=`, `get20 after=`). If a disc is refused or the screen stays blank,
+that file plus your `psr20_value.txt` is what to send (see
+[Something not working?](#something-not-working-send-us-these-files)).
 
 ### Steps to switch region
 
@@ -254,6 +260,46 @@ For the per-disc region helper, undoing is simpler: pull the USB out — with no
 
 The player will restore your original region from the backup that was saved during step 4 (including the EEPROM DVD region, if it was changed). The backup is created on the first run of the tool — if you ran it before, the backup holds the values from that first run, not necessarily the factory values.
 
+## Something not working? Send us these files
+
+Everything below is written onto the USB stick by the tool. Copy the files off
+the stick after **each** run — most of them are overwritten on the next run.
+
+These two always help:
+
+| File | What it tells us |
+|---|---|
+| `region_log.txt` | The whole run: the `Started:` time, the `Before: DVD=0x…, BD=0x…` values, `Config write VERIFIED` or `MISMATCH`, and the last checkpoint reached if the player stopped the script early. |
+| `.config_dump.bin` | A copy of the player's config file from that run — shows whether the region bytes really are at the expected offsets on your model. |
+
+Then add the one that matches what happened:
+
+| What happened | Also send |
+|---|---|
+| The script stopped early (`REGION_FREE_FAILED.txt` appears) | That file — its text names the reason (`config file not found`, `BD region key not found`, `value offset out of range`, `invalid BD region`, …). `REGION_FREE_OK.txt` can be missing even when the write worked; the `Config write VERIFIED` line is what counts. |
+| The region went back to the old value after a power-off | The files from the run **before** and the run **after** the power-off, renamed `log-1.txt`, `log-2.txt`, … so they do not overwrite each other. The second run's `Before:` line is the answer. |
+| The values look wrong from the start | `.config_backup.txt`, `.bd_backup.bin`, `.dvd_backup.bin`, `.bd_offset.txt`, `.dvd_offset.txt` — saved on the **first** run only, so they hold the values from before the tool wrote anything. |
+| A DVD region does not stick, or you used `DVD_EEPROM` | `.eeprom_dvd_backup.bin`, `.eeprom_device.txt` (if present) and the `diag_output/` folder. |
+| The per-disc helper refuses a disc | `patch_result.txt` (written on the stick each time a disc starts), plus the current `bd_region.txt` and `psr20_value.txt`. |
+| Nothing above explains it | The `diag_output/` folder — see below. |
+
+**`diag_output/`** comes from a deeper read-only check. Rename `run.sh` to
+`run-region.sh`, rename `diag.sh` to `run.sh`, and do one more run. The folder
+contains `diag_log.txt`, copies of the player's config files, small dumps of the
+storage devices (`*.bin`) and `strace_bdpprog.txt`. It only reads; nothing is
+written.
+
+**Hidden files:** `.config_dump.bin`, `.config_backup.txt`, `.bd_backup.bin`,
+`.dvd_backup.bin`, `.bd_offset.txt`, `.dvd_offset.txt`, `.eeprom_dvd_backup.bin`
+and `.eeprom_device.txt` start with a dot, so Finder hides them. Press
+<kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>.</kbd> on a Mac (or use `ls -a` in a terminal)
+to see them.
+
+Also write down: your **model number** (back label, e.g. `DP-UB450`), the
+**firmware version** (shown in the player's setup menu), which **disc** you used
+and what region it is, and the exact text of any message on screen. A photo of
+the screen helps.
+
 ## Help test US, UK and EU players
 
 On some US, UK and EU units the player writes the region but shows the old
@@ -264,17 +310,21 @@ player, from the [latest release](https://github.com/hemmachat/ub450-region-swit
 
 1. **Run 1 — write the value:** unplug the player, insert the USB, plug the
    player back in and turn it on. Insert a BD-J disc the player can play and
-   wait about 30 seconds. Rename `region_log.txt` on the USB to `log-1.txt`.
+   wait about 30 seconds. Rename `region_log.txt` on the USB to `log-1.txt`,
+   and copy `.config_dump.bin` to `dump-1.bin`.
 2. **Run 2 — normal power-off:** press the power button on the remote, turn
    the player on, insert the disc again, wait about 30 seconds. Copy
-   `region_log.txt` to `log-2.txt`. The line starting with `Before:` answers
-   the question.
+   `region_log.txt` to `log-2.txt` and `.config_dump.bin` to `dump-2.bin`. The
+   line starting with `Before:` answers the question.
 3. **Run 3 — only if Run 2 shows the old value:** insert the disc, wait about
    40 seconds, pull the power cord, plug it back in, insert the disc again,
-   wait about 30 seconds. Copy `region_log.txt` to `log-3.txt`.
+   wait about 30 seconds. Copy `region_log.txt` to `log-3.txt` and
+   `.config_dump.bin` to `dump-3.bin`.
 
-Send `log-1.txt`, `log-2.txt`, `log-3.txt` and `.config_dump.bin`, plus your
-model and firmware version, in a [GitHub issue](https://github.com/hemmachat/ub450-region-switch/issues).
+Send `log-1.txt`, `log-2.txt`, `log-3.txt`, `dump-1.bin`, `dump-2.bin` (and
+`dump-3.bin` if you did Run 3), `.config_backup.txt` if it is on the stick, plus
+your model and firmware version, in a [GitHub issue](https://github.com/hemmachat/ub450-region-switch/issues).
+The dot-files are hidden in Finder — press <kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>.</kbd>.
 Full details, including why each run matters: [testing/US-UK-test-protocol.md](testing/US-UK-test-protocol.md).
 
 ## FAQ
@@ -316,7 +366,7 @@ Unknown. If a firmware update resets the region, repeat the process.
 
 ### The region went back to the old value after a reboot
 
-v5.7 and later log `Config write VERIFIED` when the new value is in the config file. If the next run's `Before:` line shows the old value, the player wrote its own copy of the settings back over the file. This can happen at a clean power-off on some UK, US and EU units (confirmed on a UK player, 26 Oct 2026); the Australian unit has not shown it, but the unplug step is safe there too. **Unplug the player instead of using the remote after the run** — an EU user confirmed that keeps the change, and the tool's closing log says the same. Send `region_log.txt` and `.config_dump.bin` from both runs, plus your model and firmware version. US and UK testers are also checking whether a normal value survives — see [Help test US, UK and EU players](#help-test-us-uk-and-eu-players).
+v5.7 and later log `Config write VERIFIED` when the new value is in the config file. If the next run's `Before:` line shows the old value, the player wrote its own copy of the settings back over the file. This can happen at a clean power-off on some UK, US and EU units (confirmed on a UK player, 26 Oct 2026); the Australian unit has not shown it, but the unplug step is safe there too. **Unplug the player instead of using the remote after the run** — an EU user confirmed that keeps the change, and the tool's closing log says the same. Send `region_log.txt` and `.config_dump.bin` from both runs, plus your model and firmware version — the full list is in [Something not working?](#something-not-working-send-us-these-files). US and UK testers are also checking whether a normal value survives — see [Help test US, UK and EU players](#help-test-us-uk-and-eu-players).
 
 ### An older version wrote `7` — why did a disc play then?
 
@@ -354,7 +404,7 @@ The script checks that the config file on your player matches the expected forma
 
 DVD regions are supported as of v5. The player keeps the DVD region in the config file and in a second copy in the hardware EEPROM, and it reads the EEPROM copy at every boot. The script always writes the config file; it writes the EEPROM **only when a `DVD_EEPROM` file (empty) is on the USB**, because the EEPROM step is the only write outside the config file and it has not been verified on real hardware yet. By default the tool sets DVD to region 1 (US); put a `dvd_region.txt` file on the USB to choose 0–6.
 
-The EEPROM step also requires that the value in the config file differs from the one you are setting, that exactly one device matches, and that `/proc/mtd` gives a size for every MTD partition it considers. If more than one device matches, it refuses to write and logs `EEPROM write REFUSED`. The matching device is backed up to `.eeprom_dvd_backup.bin` before any write. If you enable `DVD_EEPROM`, check `region_log.txt`: `EEPROM write SUCCEEDED` means it verified, `REFUSED` means it stopped safely. If the DVD region still doesn't stick, send the `diag_output/` folder — with a verified EEPROM write we still need to confirm the correct device on more models.
+The EEPROM step also requires that the value in the config file differs from the one you are setting, that exactly one device matches, and that `/proc/mtd` gives a size for every MTD partition it considers. If more than one device matches, it refuses to write and logs `EEPROM write REFUSED`. The matching device is backed up to `.eeprom_dvd_backup.bin` before any write. If you enable `DVD_EEPROM`, check `region_log.txt`: `EEPROM write SUCCEEDED` means it verified, `REFUSED` means it stopped safely. If the DVD region still doesn't stick, send the `diag_output/` folder — with a verified EEPROM write we still need to confirm the correct device on more models. The files to send are listed in [Something not working?](#something-not-working-send-us-these-files).
 
 DVD uses one region number (0–6); `0` is the region-free value. This is **not verified** on these players: the firmware reads the DVD region from the hardware EEPROM at boot, and the EEPROM copy is only written when the advanced `DVD_EEPROM` file is on the USB. Setting `dvd_region.txt` to `0` changes only the config file, which the player may override at boot. A few older RCE DVDs also refuse a region-0 player.
 
@@ -396,6 +446,8 @@ No proprietary code is included in this repository. The build script operates on
 Region codes: the player accepts `1` (A), `2` (B) and `4` (C) as single region codes. The values were checked against the [Blu-ray specification (PSR 20)](https://videolan.videolan.me/libbluray/player__settings_8h.html) via libbluray, but playback tests on a UB450GN (26 Oct 2026) show stock firmware does **not** treat the byte as a PSR 20 bitmask: `7` falls back to the player's own region. DVD values follow the [DVD region code standard](https://en.wikipedia.org/wiki/DVD_region_code). The BD-Java debug mode is a standard feature of the CVM runtime used in MediaTek-based Blu-ray players.
 
 ## Changelog
+
+**Unreleased (documentation)** — Added a reference section, "Something not working? Send us these files": every file the tool writes to the USB, what each one contains, and which to send for each symptom (script did nothing, region reverted after a power-off, wrong values from the start, DVD/EEPROM, per-disc helper, general). The US/UK test protocol now asks for `.config_dump.bin` saved per run (`dump-1.bin` …), because it is overwritten every run. `USB-README.txt` lists the written files in the same way.
 
 **v5.13 (29 Oct 2026)** — Blu-ray values and documentation.
 

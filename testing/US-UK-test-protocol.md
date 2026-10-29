@@ -13,9 +13,9 @@ The latest [release](https://github.com/hemmachat/ub450-region-switch/releases/l
 
 Copy the contents of the matching folder to the root of your USB stick, next to the `BDJ.jar` you built with `build/build.py`. Both packages skip the DVD change, so nothing else is touched. The folder's `TEST-INSTRUCTIONS.txt` has the same steps in plain language.
 
-1. **Run 1 — write the value.** Unplug the player's power cord, insert the USB, plug the player back in and turn it on. Insert a BD-J disc the player can play (its own region, or region-free/A+B) and wait about 30 seconds. Rename `region_log.txt` on the USB to `log-1.txt`.
-2. **Run 2 — normal power-off.** Press the power button on the remote and wait until the player is off. Turn it on, insert the disc again, wait about 30 seconds. Open `region_log.txt` and find the line starting with `Before:`. Rename the file to `log-2.txt`.
-3. **Run 3 — only if Run 2 shows the old value.** Insert the disc and wait about 40 seconds, then unplug the power cord instead of using the remote. Plug it back in, insert the disc, wait about 30 seconds, and read the `Before:` line again. Rename the file to `log-3.txt`.
+1. **Run 1 — write the value.** Unplug the player's power cord, insert the USB, plug the player back in and turn it on. Insert a BD-J disc the player can play (its own region, or region-free/A+B) and wait about 30 seconds. Rename `region_log.txt` on the USB to `log-1.txt`, and copy `.config_dump.bin` to `dump-1.bin` (both are overwritten on the next run).
+2. **Run 2 — normal power-off.** Press the power button on the remote and wait until the player is off. Turn it on, insert the disc again, wait about 30 seconds. Open `region_log.txt` and find the line starting with `Before:`. Rename the file to `log-2.txt` and copy `.config_dump.bin` to `dump-2.bin`.
+3. **Run 3 — only if Run 2 shows the old value.** Insert the disc and wait about 40 seconds, then unplug the power cord instead of using the remote. Plug it back in, insert the disc, wait about 30 seconds, and read the `Before:` line again. Rename the file to `log-3.txt` and copy `.config_dump.bin` to `dump-3.bin`.
 
 If the log's `Started:` time looks late (well past the boot), the script ran more than once in that session. The first run after the boot is the one whose `Before:` line answers the question — repeat the run from a cold boot if you are unsure.
 
@@ -25,7 +25,7 @@ What the result means:
 - Only Run 3 keeps it: the player's normal shutdown is rewriting the file.
 - Neither keeps it: the player rewrites the value at startup. The logs still tell us how, so please send them.
 
-Send back: `log-1.txt`, `log-2.txt`, `log-3.txt` if you did Run 3, `REGION_FREE_OK.txt` or `REGION_FREE_FAILED.txt` (the OK file can be missing even when the write worked — the `Config write VERIFIED` line is what counts), your model and firmware version, and what the other-region disc did (a photo of any message helps). Open a [GitHub issue](https://github.com/hemmachat/ub450-region-switch/issues) and attach them, or paste the `Before:` lines.
+Send back: `log-1.txt`, `log-2.txt`, `log-3.txt` if you did Run 3, `dump-1.bin`, `dump-2.bin` (and `dump-3.bin`), `REGION_FREE_OK.txt` or `REGION_FREE_FAILED.txt` (the OK file can be missing even when the write worked — the `Config write VERIFIED` line is what counts), `.config_backup.txt` if it is there (it holds the values from before the first write), your model and firmware version, and what the other-region disc did (a photo of any message helps). The dot-files are hidden in Finder — press Cmd+Shift+. on a Mac, or use `ls -a`. Open a [GitHub issue](https://github.com/hemmachat/ub450-region-switch/issues) and attach them, or paste the `Before:` lines.
 
 Optional diagnostics: rename `run.sh` to `run-region.sh`, rename `diag.sh` to `run.sh`, and do one more run. The USB gets a `diag_output` folder — send that too. It only reads.
 

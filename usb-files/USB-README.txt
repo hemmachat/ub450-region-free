@@ -72,6 +72,29 @@ How to run it
 5. Unplug the player's power cord (or switch the socket off). Do not use the remote.
 6. Remove the USB, plug the player back in, turn it on, and test a US disc.
 
+Files the tool writes here
+--------------------------
+region_log.txt              Full log of the last run. Replaced every run.
+REGION_FREE_OK.txt          The script reached the end. Can be missing on success.
+REGION_FREE_FAILED.txt      Why it stopped (config file not found, BD region
+                            key not found, value offset out of range,
+                            invalid BD region, ...).
+.config_dump.bin            Copy of the player's config file from that run.
+.config_backup.txt          Config file before the first write. First run only.
+.bd_backup.bin .dvd_backup.bin .bd_offset.txt .dvd_offset.txt
+                            Original bytes and offsets. First run only.
+.eeprom_dvd_backup.bin .eeprom_device.txt
+                            EEPROM copy and device path, only when DVD_EEPROM
+                            is used.
+diag_output/                From diag.sh: diag_log.txt, config file copies,
+                            device dumps (*.bin), strace_bdpprog.txt.
+patch_result.txt            From the per-disc helper on each disc start.
+
+Files starting with a dot are hidden in Finder on a Mac: press Cmd+Shift+.
+To ask for help, send region_log.txt and .config_dump.bin, plus the file that
+matches the problem, and your model and firmware version. Full table:
+https://github.com/hemmachat/ub450-region-switch#something-not-working-send-us-these-files
+
 Check the disc has BD-J on a computer
 -------------------------------------
 Open the disc and look for BDMV/JAR/ containing one or more .jar files. If the
