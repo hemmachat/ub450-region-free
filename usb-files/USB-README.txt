@@ -15,7 +15,9 @@ the first line of psr20_value.txt:
   1 = region A (Jigsaw)      2 or 7 = region B (The Hurt Locker)
   4 = region C (not tested)  7 also plays A+B discs such as Chernobyl
 
-The first run must leave the config byte at 3 (bd_region.txt = 3).
+The first run must leave the config byte at 3 (bd_region.txt = 3), and
+bd_region.txt must stay on the stick: the helper also runs run.sh when a disc
+starts, and with no value file that run falls back to 1.
 
 Steps to switch:
 1. Eject the disc.

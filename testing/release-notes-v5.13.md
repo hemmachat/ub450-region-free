@@ -34,8 +34,8 @@ Per-disc Blu-ray helper (shipped as `usb-files/BDJ-region-helper.jar`):
 Tests: target selection 651 checks, pairwise 154, EEPROM guards 54,
 offset/write 30, US portability 6, TMO 4, agent scripts 8.
 
-Asset: `ub450-region-switch-v5.13.zip` (1,186,616 bytes), SHA-256
-`a9faabc5d6af1a898392fd7c95c3c9dba30fa658eee92c2dc417febc87e6c0d0`.
+Asset: `ub450-region-switch-v5.13.zip` (1,187,072 bytes), SHA-256
+`3424dc8e7a16014f63d14cf938ceb85b2fb5dfc91142f18653c66515d1b754a8`.
 
 Contents: `README.md`, `build/build.py`, `usb-files/` (the USB files plus
 `BDJ-region-helper.jar`; the prebuilt tool `BDJ.jar` is not included, users

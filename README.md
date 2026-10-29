@@ -144,7 +144,7 @@ Plug the USB drive back into your computer. The main file is **`region_log.txt`*
 
 - **`Config write VERIFIED`** — the new values are in the config file. This is the important line for Blu-ray.
 - **`REGION_FREE_OK.txt`** — the script reached the end. It contains the result line. This file can be missing if the player stopped the script early; that alone does not mean the region change failed.
-- **`REGION_FREE_FAILED.txt`** — something went wrong. Check `region_log.txt` and the `diag_output/` folder on the USB for details — attach them to an issue if you need help.
+- **`REGION_FREE_FAILED.txt`** — something went wrong. Check `region_log.txt` and the `diag_output/` folder on the USB (if it is there) for details — attach them to an issue if you need help.
 
 The file `region_log.txt` has a full log of what happened, including your original region values (backed up automatically). The script also saves `.config_dump.bin` (a copy of the player's config file) on every run. It is overwritten each time, so copy it off the USB after each run if you are helping with diagnostics. The full list of files the tool writes, and which ones to send if something goes wrong, is in [Something not working? Send us these files](#something-not-working-send-us-these-files).
 
@@ -163,8 +163,9 @@ Both take effect the same way: run the tool again ([Step 4](#4-run-it)) and unpl
 **Blu-ray without a restart (advanced):** keep the USB in the player, put the value in `psr20_value.txt` and insert the disc — see [Play both regions without restarting the player](#play-both-regions-without-restarting-the-player-advanced).
 
 Tested on a DP-UB450GN (Australia, firmware V127), 26-29 Oct 2026: Jigsaw
-(locked A) plays with `1`; The Hurt Locker (locked B) plays with `2` or `7`;
-Chernobyl (A+B) plays with any value. Other models: see
+(locked A) plays with `1`; The Hurt Locker (locked B) plays with `2` (and with
+`7`, which the player treats as its own region); Chernobyl (A+B) plays with any
+value. Other models: see
 [Does this work on other models?](#does-this-work-on-other-models).
 
 ## Play both regions without restarting the player (advanced)
@@ -191,9 +192,12 @@ what `3` means, is in `docs/region-bitmask-finding.md`.
 | Region B (local) | `2`, or `7` (tested with The Hurt Locker) |
 | Region C | `4` (not tested) |
 
-Files on the stick for this mode: `BDJ_DEBUG`, the helper as `BDJ.jar`, and
-`psr20_value.txt` — create a plain text file with the value on its first line.
-Keep the normal tool files too if you still want to run it.
+Files on the stick for this mode: `BDJ_DEBUG`, the helper as `BDJ.jar`,
+`psr20_value.txt` (a plain text file with the value on its first line), and
+`run.sh` with `bd_region.txt` still set to `3` — the tested setup. The helper
+jar also runs `run.sh` when a disc starts, so do not remove `bd_region.txt`:
+with no value file, that run falls back to `1` and closes the `3` gate after
+the next power cycle.
 
 Tested on the Australian UB450: Jigsaw (locked A) plays with `1`, The Hurt
 Locker (locked B) plays with `7`, Chernobyl (A+B) plays with any value. A
@@ -283,11 +287,13 @@ Then add the one that matches what happened:
 | The per-disc helper refuses a disc | `patch_result.txt` (written on the stick each time a disc starts), plus the current `bd_region.txt` and `psr20_value.txt`. |
 | Nothing above explains it | The `diag_output/` folder — see below. |
 
-**`diag_output/`** comes from a deeper read-only check. Rename `run.sh` to
-`run-region.sh`, rename `diag.sh` to `run.sh`, and do one more run. The folder
-contains `diag_log.txt`, copies of the player's config files, small dumps of the
-storage devices (`*.bin`) and `strace_bdpprog.txt`. It only reads; nothing is
-written.
+**`diag_output/`** is a deeper read-only check. `run.sh` runs `diag.sh`
+automatically at the end, so the folder is already on the stick after a run
+that reached the end. If the script stopped early and there is no folder,
+rename `run.sh` to `run-region.sh`, rename `diag.sh` to `run.sh`, and do one
+more run. It contains `diag_log.txt`, copies of the player's config files,
+small dumps of the storage devices (`*.bin`) and `strace_bdpprog.txt`. It only
+reads; nothing is written.
 
 **Hidden files:** `.config_dump.bin`, `.config_backup.txt`, `.bd_backup.bin`,
 `.dvd_backup.bin`, `.bd_offset.txt`, `.dvd_offset.txt`, `.eeprom_dvd_backup.bin`
@@ -396,9 +402,15 @@ The process changes the region settings in the player's configuration and, only 
 
 The steps switch the player off at the wall on purpose: it stops the player saving its old settings over the new region. That is safe outside a firmware update — just don't do it while the player is installing firmware.
 
-### The build script says "wrong firmware layout"
+### The build script fails on my firmware file
 
-The script checks that the config file on your player matches the expected format before writing anything. If your player has a different firmware version with a different layout, it will stop safely. Open an issue with your model and firmware version.
+It stops with an error instead of guessing:
+
+- **`Error: no SquashFS filesystem found in firmware file.`** — the file is encrypted (UB820/UB9000 images are). Use the `PANA_DVD.FRM` update file for a UB450 or UB150; the BD-Java classes are the same across the platform.
+- **`Error: unsquashfs not found.`** — install it first (see [What you need](#what-you-need)).
+- **A `ValueError` such as `Pattern 04 B3 00 6D not found in class file` or `Last bytecode is … expected return`** — your firmware's classes differ from the tested one (AU V127). Nothing has been changed on the player; open an issue with your model and firmware version.
+
+The player side also stops safely: if the region keys are not where the tool expects them, it writes `REGION_FREE_FAILED.txt` with the reason (see [Something not working?](#something-not-working-send-us-these-files)).
 
 ### What about DVDs?
 
@@ -453,7 +465,7 @@ Region codes: the player accepts `1` (A), `2` (B) and `4` (C) as single region c
 - Fixed a shell portability bug: the MTD size parsing used a `case` pattern inside `$( )`, which bash 3.2 rejects, so `bash -n` failed on the script. Rewritten without `case`; `tests/test_us_portability.sh` now checks `bash -n`.
 - Documented the per-disc Blu-ray helper (README, `USB-README.txt`): with the region set to `3`, a BD-J jar sets the region register from `psr20_value.txt` about 10 seconds after a disc starts. Tested 29 Oct 2026: Jigsaw (locked A) with `1`, The Hurt Locker (locked B) with `7`, Chernobyl (A+B) with any value; no restart needed. The helper jar ships as `usb-files/BDJ-region-helper.jar` (copy it as `BDJ.jar` instead of the tool's).
 - README restructured into one step-by-step flow, with separate Blu-ray and DVD value tables. The measured behaviour of each value is in `docs/region-bitmask-finding.md`.
-- Added the reference section "Something not working? Send us these files": every file the tool writes to the USB, what each contains, and which to send for each symptom (stopped early, region reverted after a power-off, wrong values, DVD/EEPROM, per-disc helper, general). The US/UK protocol now saves `.config_dump.bin` per run (`dump-1.bin` …), because it is overwritten every run; `patch_result.txt` is documented for the helper; `USB-README.txt` lists the written files.
+- Added the reference section "Something not working? Send us these files": every file the tool writes to the USB, what each contains, and which to send for each symptom (stopped early, region reverted after a power-off, wrong values, DVD/EEPROM, per-disc helper, general). The US/UK protocol now saves `.config_dump.bin` per run (`dump-1.bin` …), because it is overwritten every run; `patch_result.txt` is documented for the helper; `USB-README.txt` lists the written files. Also corrected the helper's stick requirements (keep `run.sh` and `bd_region.txt` = `3`, because the helper jar also runs `run.sh` on each disc start) and replaced the build-error FAQ with the messages `build.py` actually prints.
 - Tests: target selection 651 checks, pairwise 154, EEPROM 54, offset/write 30, US portability 6, TMO 4, agent scripts 8.
 
 **v5.12 (documentation)** — Corrected the trigger-disc instructions. The script runs from a Blu-ray the player can currently play (same region as its setting, or region-free/A+B) that has BD-J. A disc from another region can stop at the region-error screen before its Java starts: on 28 Oct 2026, The Hurt Locker (B locked) at region A did not run the script; Chernobyl (A+B) did, after which The Hurt Locker played. The playback table now marks The Hurt Locker at `2` as tested.
