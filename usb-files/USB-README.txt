@@ -1,10 +1,12 @@
-USB contents — region switch v5.13
+USB contents — region switch v5.14
 =================================
 
-Factory limitation: the player enforces one Blu-ray region at a time
+Factory limitation: the player stores one Blu-ray region code at a time
 (1 = A, 2 = B, 4 = C). A locked disc compares the player's region register
-with its own region and refuses anything else, so one value cannot satisfy
-an A disc and a B disc at once.
+with its own region. Discs differ in how strictly they check: with the helper
+below set to 1, the tested locked A disc and the tested locked B disc both
+play in one session (29 Oct 2026). A disc that checks strictly for region B
+needs 2, which then locks out region A.
 
 PER-DISC REGION (no restart)
 ----------------------------
@@ -12,20 +14,28 @@ With the config byte at 3, the player starts a disc of either region, and
 BDJ.jar sets the region register about 10 seconds after the disc starts to
 the first line of psr20_value.txt:
 
-  1 = region A (Jigsaw)      2 or 7 = region B (The Hurt Locker)
-  4 = region C (not tested)  7 also plays A+B discs such as Chernobyl
+  1 = region A; also plays The Hurt Locker (tested 29 Oct 2026)
+  2 = region B (strict B discs; The Hurt Locker also plays at 1)
+  7 = plays lax B discs only; Jigsaw (locked A) refuses it
+  4 = region C (not tested)
+
+Use 1 unless a disc is refused. Never use a value above 7: 255 turned the
+picture off on the tested player. Missing or empty psr20_value.txt -> 1.
+The value stays set for the session, across disc swaps.
 
 The first run must leave the config byte at 3 (bd_region.txt = 3), and
 bd_region.txt must stay on the stick: the helper also runs run.sh when a disc
-starts, and with no value file that run falls back to 1.
+starts, and without that file the run falls back to writing 1.
 
 Steps to switch:
 1. Eject the disc.
 2. Pull the USB out of the player.
 3. On a computer, set the first line of psr20_value.txt. Save.
 4. Eject the USB from the computer, put it back in the player.
-5. Insert the disc; the film starts about 10 seconds later.
-No power cycle is needed. Keep the USB in the player while watching.
+5. Insert a disc whose Java starts fresh (a different disc, or after a power
+   cycle); the film starts about 10 seconds later.
+Reinserting the same disc can resume playback, and then the new value is not
+applied. Keep the USB in the player while watching.
 
 This applies to Blu-ray only. DVDs switch differently:
 1. Set dvd_region.txt (0=free, 1=US, 2=Europe, 3=SE Asia, 4=Australia,
@@ -43,7 +53,8 @@ run.sh              Release script. Writes bd_region.txt to the Blu-ray byte and
 bd_region.txt       First line: 1 = Region A, 2 = Region B, 4 = Region C.
                     3 is written as-is; the player then treats it as its own
                     region, which is what the per-disc hook above needs.
-psr20_value.txt     Per-disc region for the hook above (1, 2, 4 or 7).
+psr20_value.txt     Per-disc region for the hook above (1, 2, 4 or 7; ships
+                    with 1).
                     Read when a disc starts; no restart needed.
 dvd_region.txt      First line: 0 = region-free, 1 = US, 2 = Europe, 3 = SE Asia,
                     4 = Australia, 5 = Russia/India, 6 = China.

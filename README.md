@@ -4,13 +4,24 @@ Play Blu-ray and DVD discs from other regions on a DP-UB450, DP-UB150 or
 similar MediaTek-based player. No soldering, no permanent changes, fully
 reversible.
 
-> **Factory limitation — one Blu-ray region at a time.** There is no value
-> that plays every region at once, and `7` is not "all regions". The per-disc
-> helper plays locked A and B discs without restarting the player, but still
-> one at a time. True simultaneous A+B needs modified player firmware, which
-> this project does not provide.
+> **One value, both regions — measured, not universal.** With the per-disc
+> helper and its value set to `1`, the tested player plays a locked region A
+> disc **and** a locked region B disc in the same session, with no switching
+> (Jigsaw and The Hurt Locker, 29 Oct 2026). Discs differ in how strictly they
+> check the region: `7` is not "all regions", and a disc that checks strictly
+> for region B needs `2`, which then locks out region A discs. There is no
+> value guaranteed to play every disc — see the table in
+> [Method 1](#method-1--play-both-regions-recommended).
+> True all-region firmware is not provided by this project.
 
-To jump straight to it: values are in [Step 3](#3-prepare-the-usb-drive), the run steps in [Steps](#steps), and changing region later in [Switch region later](#switch-region-later).
+There are two ways to use it:
+
+| Method | What it does | USB while watching |
+|---|---|---|
+| **[Method 1 — play both regions](#method-1--play-both-regions-recommended)** (recommended) | one value (`1`) plays locked A and the tested locked B discs; nothing to change between discs | stays in the player |
+| **[Method 2 — region switcher](#method-2--region-switcher-no-stick-while-watching)** | sets the player to one region (`1`, `2` or `4`) at a time | only while the tool runs |
+
+Both start by [downloading the repository](#common-setup); building `BDJ.jar` is only needed for Method 2.
 
 ## What you need
 
@@ -19,9 +30,11 @@ To jump straight to it: values are in [Step 3](#3-prepare-the-usb-drive), the ru
 **Update your player's firmware first** (Setup → System → Firmware Update). The region change might not survive a future update, so get that out of the way before you start.
 
 - **DP-UB450 or DP-UB150** (tested on UB450GN, Australia). May also work on UB154, UB159. See "Does this work on other models?" below
-- **A USB drive** (any size, formatted as **FAT32** — most USB drives already are)
+- **A USB drive** (any size, formatted as **FAT32** — most already are; FAT16 also worked on the tested player)
 - **A computer** (Mac, Windows with WSL, or Linux)
 - **A Blu-ray disc with BD-J that the player can currently play** — same region as its current setting, or a region-free/A+B disc. Most major-studio discs have BD-J; to check on a computer, open the disc and look for a `BDMV/JAR/` folder containing one or more `.jar` files (see "How do I check the disc has BD-J?" below). Do not rely on the disc from the other region you want to play: it can stop at the region-error screen before its Java starts, so the script never runs. If the script does not start, try another playable disc with BD-J.
+Everything above is needed for both methods. **Method 2 only** also needs:
+
 - **The firmware update file** (`PANA_DVD.FRM`) — download it from the manufacturer's support site for the UB450 or UB150. You need the file, not to install the update
 - **Python 3** (pre-installed on Mac and most Linux; [python.org](https://www.python.org/downloads/) for Windows)
 - **unsquashfs** — to extract a file from the firmware:
@@ -29,7 +42,11 @@ To jump straight to it: values are in [Step 3](#3-prepare-the-usb-drive), the ru
   - Linux: `sudo apt install squashfs-tools` (often pre-installed)
   - Windows: use WSL (Windows Subsystem for Linux), then follow the Linux instructions
 
-## Steps
+## Common setup
+
+**Step 1 (download) is needed for both methods. Step 2 (build) is only needed
+for Method 2** — Method 1 uses the helper jar that ships in the repository, so
+it needs no firmware file, no Python and no `unsquashfs`.
 
 ### 1. Download
 
@@ -41,7 +58,7 @@ git clone https://github.com/hemmachat/ub450-region-switch.git
 
 Or click **Code → Download ZIP** on the [repository page](https://github.com/hemmachat/ub450-region-switch) and unzip it.
 
-### 2. Build BDJ.jar
+### 2. Build BDJ.jar (Method 2 only)
 
 Open a terminal (command prompt on Windows), go to the `build/` folder and run:
 
@@ -49,7 +66,7 @@ Open a terminal (command prompt on Windows), go to the `build/` folder and run:
 python3 build.py /path/to/PANA_DVD.FRM
 ```
 
-Replace `/path/to/PANA_DVD.FRM` with the actual path to your downloaded firmware file. The script writes `usb-files/BDJ.jar` — that is the file you copy in Step 3.
+Replace `/path/to/PANA_DVD.FRM` with the actual path to your downloaded firmware file. The script writes `usb-files/BDJ.jar`. Use it in [Method 2](#method-2--region-switcher-no-stick-while-watching); Method 1 uses the helper jar that ships in the repo instead.
 
 The script will:
 1. Extract the player's boot classes from the firmware
@@ -59,39 +76,149 @@ The script will:
 
 You should see output ending with `Done.` and a SHA-256 hash.
 
-### 3. Prepare the USB drive
+## Method 1 — play both regions (recommended)
 
-Format your USB drive as **FAT32** (most USB drives already are).
+One value, `1`, plays the tested locked region A disc **and** the tested locked
+region B disc in the same session. There is nothing to change between discs:
+put the stick in and play. The USB stays in the player while you watch.
 
-Copy these files from the `usb-files/` folder to the **root** of the USB drive:
+### Set up the USB (once)
 
-- `BDJ_DEBUG` (an empty file — don't open or edit it)
-- `BDJ.jar` (about 1.3 MB — the file you built in step 2)
+This method does not need the `BDJ.jar` you would build: it uses the helper jar that ships in the repository.
+
+| File on the stick | Value |
+|---|---|
+| `BDJ_DEBUG` | empty file (from `usb-files/`) |
+| `BDJ.jar` | the helper: `usb-files/BDJ-region-helper.jar` |
+| `run.sh` | from `usb-files/` |
+| `bd_region.txt` | **edit line 1** from the shipped `1` to `3` |
+| `psr20_value.txt` | ships with `1` (from `usb-files/`); leave it |
+| `dvd_region.txt` | **empty the shipped file** (the shipped one contains `1`, which would set the DVD region to US) |
+
+Do not remove `bd_region.txt`: the helper also runs `run.sh`, and without that
+file the run falls back to writing `1`, which closes the `3` gate after the
+next power cycle.
+
+The helper jar was built from the Australian V127 firmware. Copy the files
+from `usb-files/` to the **root** of the stick. On another model,
+rebuild it from your own firmware with
+`testing/inprocess-experiment/build_inprocess.py` (source:
+`testing/inprocess-experiment/RegionPatch.java`). Why this works, and what `3`
+means, is in `docs/region-bitmask-finding.md`.
+
+### First run (once)
+
+The player must store the `3` once. With the stick in the player:
+
+1. Unplug the player at the wall, insert the stick, power on. If the player
+   shows its USB media menu ("please select a function"), press **Return** to
+   leave it.
+2. Insert any Blu-ray with BD-J that the player can play and wait ~30 s.
+3. Unplug the player, power on once more — that applies the `3`.
+
+To see what the run did, plug the stick into a computer afterwards:
+`region_log.txt` should say `Config write VERIFIED: … BD=0x03`.
+
+If you already ran the tool before, the byte is probably `3` already; play a
+locked region A disc to check. It shows its region message only if the gate
+is closed.
+
+### Play
+
+Keep the stick in the player and insert any disc; wait ~20 s.
+
+Tested on the Australian UB450 (29 Oct 2026): Jigsaw (locked A) plays,
+The Hurt Locker (locked B) plays, Chernobyl (A+B) plays. Disc swaps need
+nothing — the value stays set for the session.
+
+### The value to use
+
+| Blu-ray disc | `psr20_value.txt` |
+|---|---|
+| Locked region A (US) | `1` |
+| Locked region B, strict check | `2` |
+| Locked region B, lax check (tested: The Hurt Locker) | `1`, `2` or `7` |
+| Region C | `4` (not tested) |
+
+Discs do not all check the region the same way. Jigsaw (locked A) accepts only
+`1` and refuses `7`. The Hurt Locker (locked B) accepted `7`, and it also
+played with the player set to `1`. So `1` is the best single value on the
+tested player: it plays the locked A disc and The Hurt Locker in one session,
+with no edit between discs. A locked B disc that checks strictly would need
+`2` — and then region A discs stop playing. **Never use a value above `7`** —
+`255` turned the picture off on the tested player. If `psr20_value.txt` is
+missing or holds no number, the helper uses `1`.
+
+### Change the value
+
+1. Eject the disc.
+2. Pull the USB out of the player.
+3. On a computer, set the first line of `psr20_value.txt` to the value you
+   need. Save the file.
+4. Eject the USB from the computer and put it back in the player.
+5. Insert a disc whose Java has not just started — a different disc, or any
+   disc after a power cycle. The film starts about 10 seconds later.
+
+The value is read when a disc's Java starts. Reinserting the **same** disc can
+resume the previous playback instead; the helper then does not run again and
+the new value is not applied — use another disc or power-cycle the player.
+For the tested discs, `1` needs no change at all.
+
+### Limits
+
+- The USB must stay in the player while watching. Without it the player uses
+  its own region (B on the Australian unit) and locked A discs are blocked.
+- The helper only runs for Blu-ray discs that have BD-J. DVDs are not affected
+  — their region comes from the tool run in Method 2 (plus, on some units, the
+  EEPROM copy).
+- A locked B disc that checks strictly needs `2`, which then locks out region
+  A discs.
+- The player must have the byte at `3` (the first run above).
+
+The helper writes **`patch_result.txt`** on the stick each time a disc's Java starts,
+with the region it read before and after the change (`get20 before=`,
+`value file=`, `get20 after=`). If a disc is refused or the screen stays blank,
+that file plus your `psr20_value.txt` is what to send (see
+[Something not working?](#something-not-working-send-us-these-files)).
+
+## Method 2 — region switcher (no stick while watching)
+
+This sets the player's own Blu-ray region to one value and keeps it. The stick
+is only needed while the tool runs; remove it for playback. One region at a
+time: to play the other region, run it again.
+
+### Set up the USB
+
+Format the USB drive as **FAT32**. Copy these files from `usb-files/` to the
+**root** of the stick:
+
+- `BDJ_DEBUG` (an empty file — do not open or edit it)
+- `BDJ.jar` (the file you built in common step 2)
 - `run.sh` (the region-change script)
-- `bd_region.txt` — **edit line 1** to the value for the disc you want to play (table below): `1` = A, `2` = B, `4` = C. `3` is only for the per-disc helper; delete the file to use the default (1 = A).
-- `dvd_region.txt` — ships with `1` (US), so the tool also sets the DVD region to US. **Make the file empty to leave the DVD region unchanged**, or put another number on line 1: 0 = free, 2 = Europe/Japan, 3 = SE Asia, 4 = Australia, 5 = Russia/India, 6 = China.
-- `DVD_EEPROM` (optional, advanced — **create an empty file with this name** on the USB to enable the unverified hardware EEPROM write; it is not in `usb-files/`. See [What about DVDs?](#what-about-dvds))
-- `diag.sh` (collects diagnostic data — always include this file)
-- `USB-README.txt` (optional — this guide, for reference on the stick)
+- `bd_region.txt` — **edit line 1**: `1` = A, `2` = B, `4` = C (table below)
+- `dvd_region.txt` — ships with `1` (US). **Make the file empty to leave the
+  DVD region unchanged**, or put another number on line 1 (table below)
+- `DVD_EEPROM` (optional, advanced — **create an empty file with this name**
+  to enable the unverified hardware EEPROM write; see
+  [What about DVDs?](#what-about-dvds))
+- `diag.sh` (collects diagnostic data — always include it)
+- `USB-README.txt` (optional — the same guide, for reference on the stick)
 
-(Advanced: `BDJ-region-helper.jar` is the per-disc helper — it replaces
-`BDJ.jar` on the stick; see [Play both regions without restarting the player](#play-both-regions-without-restarting-the-player-advanced).)
-
-The USB drive should look like this:
+The stick should look like this:
 
 ```
 USB drive (root)
 ├── BDJ_DEBUG
 ├── BDJ.jar
 ├── run.sh
-├── bd_region.txt   (optional — 1=A, 2=B, 4=C; 3 for the per-disc helper)
+├── bd_region.txt   (1=A, 2=B, 4=C)
 ├── dvd_region.txt  (default 1 = US; empty = no DVD change)
 ├── DVD_EEPROM      (optional — create an empty file; leave out normally)
 ├── diag.sh
 └── USB-README.txt  (optional — this guide)
 ```
 
-**Blu-ray (BD) discs** — the value goes in `bd_region.txt` (the advanced per-disc mode uses `psr20_value.txt` instead):
+**Blu-ray values** (`bd_region.txt`, line 1):
 
 | Disc you want to play | Region | Value |
 |---|---|---|
@@ -101,11 +228,9 @@ USB drive (root)
 
 A locked Blu-ray disc from another region shows its region message. `7` is not
 "all regions": the player falls back to its own region, so on a region A
-player it does not play region B discs. (In the per-disc helper below the
-value is used as given, and `7` worked for The Hurt Locker.)
+player it does not play region B discs.
 
-**DVD discs** — the value goes in `dvd_region.txt` (**main tool only**; there is
-no per-disc mode for DVDs):
+**DVD values** (`dvd_region.txt`, line 1):
 
 | Disc you want to play | Value |
 |---|---|
@@ -121,148 +246,63 @@ On some players the DVD value comes back after a restart unless the EEPROM
 copy is written too (that EEPROM write is not verified yet) — see
 [What about DVDs?](#what-about-dvds).
 
-### 4. Run it
+### Run it
 
-1. **Unplug the player's power cord** (or switch the socket off at the wall). Do not use the remote or standby.
-2. **Plug the USB drive** into the player's USB port (front or rear — use whichever your model has)
-3. **Plug the player back in, turn it on**, and wait for the home screen (no disc yet)
-4. **Insert a Blu-ray with BD-J that the player can currently play** — the same region as its current setting, or a region-free/A+B disc (Chernobyl, A+B, was used in the 28 Oct 2026 test). It must be a Blu-ray, not a DVD. The script starts when the disc's Java application (its menu) starts, so **let the disc menu load**; if only the player's home screen appears, press **Top Menu** (or **Menu**) on the remote. Most major-studio discs have BD-J (Disney, Warner, Universal, etc); some boutique labels (Arrow, Criterion, etc) do not. A disc from another region may show a region message and never start its Java — the script did not run from that screen with The Hurt Locker on 28 Oct 2026.
-5. **Wait about 30 seconds** after the disc menu appears — the region change happens in the background.
-6. **If no `region_log.txt` appears on the USB afterwards, the script did not run** — try another disc the player can play (same region or region-free/A+B) that has BD-J.
-7. **Unplug the player's power cord** (or switch the socket off at the wall). Do not use the remote. Leave it off for a few seconds.
-8. **Remove the USB drive**
-9. **Plug it back in and turn it on**
+1. **Unplug the power cord** (or switch the socket off). Do not use the remote.
+2. **Plug the USB drive** into the player.
+3. **Plug the player back in, turn it on**, and wait for the home screen (no
+   disc yet).
+4. **Insert a Blu-ray with BD-J that the player can currently play** — the
+   same region as its current setting, or a region-free/A+B disc. The script
+   starts when the disc menu loads; if only the home screen appears, press
+   **Top Menu**. A disc from another region may show a region message and never
+   start its Java, so the script does not run from that screen.
+5. **Wait about 30 seconds** after the disc menu appears.
+6. **If no `region_log.txt` appears on the USB, the script did not run** — try
+   another playable disc with BD-J.
+7. **Unplug the player** (not the remote), leave it off for a few seconds.
+8. **Remove the USB drive**.
+9. **Plug it back in and turn it on**.
 
-On the tested Australian player, the Blu-ray region is now the value in `bd_region.txt` (1 = A by default). DVD is set to US (region 1) because the shipped `dvd_region.txt` contains `1`; make the file empty if you do not want the DVD region changed. Check `region_log.txt` on the USB — the `Config write VERIFIED` line tells you the new values are in place. If you run the process again later, its `Before:` line shows whether they stuck.
+### Check it worked
 
+Plug the USB into your computer. The main file is **`region_log.txt`**
+(replaced on every run). It shows the original values, whether the write was
+verified, and how far the script got.
 
-> **Known limitation:** on some UK, US and EU units the Blu-ray region is written successfully but the player shows the original value again after a clean power-off (confirmed with v5.7 on a UK player, 26 Oct 2026). v5.7 and later log `Config write VERIFIED`; if the next run's `Before:` line shows the old value, the player replaced it. The steps for this tool unplug the player instead of using the remote, because a clean power-off lets those units write their old value back; an EU user confirmed that unplugging keeps the change, and the Australian player did not rewrite the value in the 27 Oct 2026 probe, so unplugging is harmless there. US and UK testers are confirming the one-time unplug flow (see [Help test US, UK and EU players](#help-test-us-uk-and-eu-players)).
+- **`Config write VERIFIED`** — the new values are in the config file.
+- **`REGION_FREE_OK.txt`** — the script reached the end. It can be missing when
+  the player stopped the script early; that alone does not mean it failed.
+- **`REGION_FREE_FAILED.txt`** — something went wrong. Check `region_log.txt`
+  and `diag_output/` (if present) and attach them to an issue.
 
-### 5. Check it worked
+The full list of files the tool writes is in
+[Something not working?](#something-not-working-send-us-these-files).
 
-Plug the USB drive back into your computer. The main file is **`region_log.txt`** (replaced on every run — if the script ran more than once, only the last run is in it; the `Started:` time tells you which one you are reading). It shows the original values, whether the write was verified, and how far the script got.
+### Change region later
 
-- **`Config write VERIFIED`** — the new values are in the config file. This is the important line for Blu-ray.
-- **`REGION_FREE_OK.txt`** — the script reached the end. It contains the result line. This file can be missing if the player stopped the script early; that alone does not mean the region change failed.
-- **`REGION_FREE_FAILED.txt`** — something went wrong. Check `region_log.txt` and the `diag_output/` folder on the USB (if it is there) for details — attach them to an issue if you need help.
+- **Blu-ray:** edit `bd_region.txt` (line 1: `1`, `2` or `4`).
+- **DVD:** edit `dvd_region.txt` (line 1: `0`–`6`), or make the file empty to
+  leave the DVD region alone.
 
-The file `region_log.txt` has a full log of what happened, including your original region values (backed up automatically). The script also saves `.config_dump.bin` (a copy of the player's config file) on every run. It is overwritten each time, so copy it off the USB after each run if you are helping with diagnostics. The full list of files the tool writes, and which ones to send if something goes wrong, is in [Something not working? Send us these files](#something-not-working-send-us-these-files).
-
-### 6. Test
-
-Insert a disc from the region you set: with `bd_region.txt` = `1`, a region A disc; with `2`, a region B disc. A disc from any other region will show the region error (that is expected).
-
-## Switch region later
-
-**To change the Blu-ray region:** edit `bd_region.txt` on the USB drive — line 1: `1` (A), `2` (B) or `4` (C). Any other value is stored but the player uses its own region. `3` is written only by the per-disc helper, which needs it so the player does not block a disc of the other region. Delete the file to keep the default (1 = A).
-
-**To change the DVD region:** edit `dvd_region.txt` on the USB drive — change the number on the first line to your desired region: 0 (region-free), 1 (US), 2 (Europe/Japan), 3 (SE Asia), 4 (Australia), 5 (Russia/India), or 6 (China). Delete the file to use the default (1 = US); make the file empty instead if you want to leave the DVD region unchanged. The new value is written to the config file; the second copy in the hardware EEPROM is **not** written unless you add a `DVD_EEPROM` file to the USB (see [What about DVDs?](#what-about-dvds)).
-
-Both take effect the same way: run the tool again ([Step 4](#4-run-it)) and unplug the player.
-
-**Blu-ray without a restart (advanced):** keep the USB in the player, put the value in `psr20_value.txt` and insert the disc — see [Play both regions without restarting the player](#play-both-regions-without-restarting-the-player-advanced).
+Then repeat [Run it](#run-it) and unplug the player at the end.
 
 Tested on a DP-UB450GN (Australia, firmware V127), 26-29 Oct 2026: Jigsaw
 (locked A) plays with `1`; The Hurt Locker (locked B) plays with `2` (and with
 `7`, which the player treats as its own region); Chernobyl (A+B) plays with any
-value. Other models: see
-[Does this work on other models?](#does-this-work-on-other-models).
-
-## Play both regions without restarting the player (advanced)
-
-The steps above change which region the player is set to, and the player has
-to restart before the change applies. This second way works per disc instead,
-so switching is just a file edit:
-
-- the player is set to `3` once (run the normal tool with `bd_region.txt` = `3`),
-- a small `BDJ.jar` helper on the USB tells the player, about 10 seconds after
-  a disc starts, which region to report to the disc. The value comes from
-  `psr20_value.txt`.
-
-The helper is shipped as `usb-files/BDJ-region-helper.jar` — copy it to the USB
-as `BDJ.jar`, **replacing** the tool's `BDJ.jar`; only one of the two can be on
-the stick at a time. It was built from the Australian V127 firmware; on another
-model, rebuild it from your own firmware with `testing/inprocess-experiment/build_inprocess.py`.
-Source: `testing/inprocess-experiment/RegionPatch.java`. Why this works, and
-what `3` means, is in `docs/region-bitmask-finding.md`.
-
-| Blu-ray disc | `psr20_value.txt` |
-|---|---|
-| Locked region A (US) | `1` |
-| Region B (local) | `2`, or `7` (tested with The Hurt Locker) |
-| Region C | `4` (not tested) |
-
-Files on the stick for this mode: `BDJ_DEBUG`, the helper as `BDJ.jar`,
-`psr20_value.txt` (a plain text file with the value on its first line), and
-`run.sh` with `bd_region.txt` still set to `3` — the tested setup. The helper
-jar also runs `run.sh` when a disc starts, so do not remove `bd_region.txt`:
-with no value file, that run falls back to `1` and closes the `3` gate after
-the next power cycle.
-
-Tested on the Australian UB450: Jigsaw (locked A) plays with `1`, The Hurt
-Locker (locked B) plays with `7`, Chernobyl (A+B) plays with any value. A
-locked A disc needs exactly `1`; `7` is refused by that disc.
-
-The helper writes **`patch_result.txt`** on the stick each time a disc starts,
-with the region it read before and after the change (`get20 before=`,
-`value file=`, `get20 after=`). If a disc is refused or the screen stays blank,
-that file plus your `psr20_value.txt` is what to send (see
-[Something not working?](#something-not-working-send-us-these-files)).
-
-### Steps to switch region
-
-1. Eject the disc.
-2. Pull the USB out of the player.
-3. On a computer, open `psr20_value.txt` and set the first line to the value
-   from the table above. Save the file.
-4. Eject the USB from the computer and put it back in the player.
-5. Insert the disc. The film starts about 10 seconds later.
-
-No power cycle is needed. The value is read when the disc starts, so a change
-applies to the next disc you insert.
-
-### Blu-ray and DVD switch differently
-
-**Blu-ray (per disc, no restart):** follow [Steps to switch region](#steps-to-switch-region)
-above — change `psr20_value.txt`, reinsert the stick and the disc.
-
-**DVD (config write, needs the unplug):**
-
-1. Put the USB in the player with `dvd_region.txt` set to the wanted region
-   (0 = free, 1 = US, 2 = Europe, 3 = SE Asia, 4 = Australia, 5 = Russia/India,
-   6 = China).
-2. Insert a Blu-ray with BD-J that the player can play — that is what runs
-   `run.sh`; a DVD cannot trigger it.
-3. Wait about 30 seconds. `region_log.txt` on the USB should say
-   `Config write VERIFIED: … DVD=…`.
-4. Unplug the player at the wall (not the remote), then power it on.
-5. Insert the DVD.
-
-If the DVD region still shows the old value after that, the player is taking
-it from the hardware EEPROM — that is the opt-in `DVD_EEPROM` write, which is
-not verified yet.
-
-### Limits
-
-- The USB must stay in the player. Without it the player uses its own region.
-- The helper only runs for Blu-ray discs that have BD-J. DVDs are not affected:
-  their region still comes from the normal tool run (plus, on some units,
-  the EEPROM copy) and needs the unplug.
-- It sets one region at a time: the player still cannot play an A disc and a
-  B disc at the same time without changing the value.
-- The player must be set to `3` first (run the region tool once with
-  `bd_region.txt` = `3`).
+value. To play both regions without switching, use
+[Method 1](#method-1--play-both-regions-recommended).
 
 ## How to undo it
 
 If you ever want to go back to your original region:
 
 1. Create an empty file called **`RESTORE`** on the USB drive (next to the other files)
-2. Repeat step 4 above: unplug the player, plug in the USB, insert the disc, wait, unplug it again, remove the USB, then plug it back in and turn it on
+2. Repeat [Run it](#run-it) in Method 2: unplug the player, plug in the USB, insert a playable Blu-ray with BD-J, wait, unplug it again, remove the USB, then plug it back in and turn it on
 
 For the per-disc region helper, undoing is simpler: pull the USB out — with no stick the player uses its own region again.
 
-The player will restore your original region from the backup that was saved during step 4 (including the EEPROM DVD region, if it was changed). The backup is created on the first run of the tool — if you ran it before, the backup holds the values from that first run, not necessarily the factory values.
+The player will restore your original region from the backup that was saved during the first run (including the EEPROM DVD region, if it was changed). The backup is created on the first run of the tool — if you ran it before, the backup holds the values from that first run, not necessarily the factory values.
 
 ## Something not working? Send us these files
 
@@ -284,7 +324,7 @@ Then add the one that matches what happened:
 | The region went back to the old value after a power-off | The files from the run **before** and the run **after** the power-off, renamed `log-1.txt`, `log-2.txt`, … so they do not overwrite each other. The second run's `Before:` line is the answer. |
 | The values look wrong from the start | `.config_backup.txt`, `.bd_backup.bin`, `.dvd_backup.bin`, `.bd_offset.txt`, `.dvd_offset.txt` — saved on the **first** run only, so they hold the values from before the tool wrote anything. |
 | A DVD region does not stick, or you used `DVD_EEPROM` | `.eeprom_dvd_backup.bin`, `.eeprom_device.txt` (if present) and the `diag_output/` folder. |
-| The per-disc helper refuses a disc | `patch_result.txt` (written on the stick each time a disc starts), plus the current `bd_region.txt` and `psr20_value.txt`. |
+| The per-disc helper refuses a disc | `patch_result.txt` (written on the stick each time a disc's Java starts), plus the current `bd_region.txt` and `psr20_value.txt`. |
 | Nothing above explains it | The `diag_output/` folder — see below. |
 
 **`diag_output/`** is a deeper read-only check. `run.sh` runs `diag.sh`
@@ -356,12 +396,13 @@ No Blu-ray drive? If you have a disc image or backup folder, MakeMKV or any Blu-
 
 ### Can I leave the USB in during normal use?
 
-It depends which mode you are using:
+It depends which method you use:
 
-- **Normal region change:** remove the USB afterwards. The script only has to
-  run once, and `BDJ_DEBUG` changes how the player loads disc software.
-- **Per-disc region helper** (see above): the USB must **stay in the player**,
-  because the helper runs every time a disc starts.
+- **Method 1 (both regions):** yes — the stick must **stay in the player**,
+  because the helper runs when each disc starts.
+- **Method 2 (region switcher):** remove the stick after the run. The script
+  only has to run once per region change, and `BDJ_DEBUG` changes how the
+  player loads disc software.
 
 If a disc ever shows a blank screen, remove the USB and power-cycle the player;
 with no stick the player behaves normally.
@@ -380,11 +421,12 @@ v5.7 and later log `Config write VERIFIED` when the new value is in the config f
 
 ### Can this make my player region-free?
 
-This tool switches the player's Blu-ray region; it does not unlock all regions.
-For playing locked A and B discs without restarting the player, see
+On the tested player, the per-disc helper at value `1` plays the tested
+locked A disc and the tested locked B disc in the same session — see
 [Can the player be made region-free (play A and B at the same time)?](#can-the-player-be-made-region-free-play-a-and-b-at-the-same-time).
-True simultaneous A+B playback needs modified player firmware, which this
-project does not provide.
+It is not a universal unlock: a disc that checks strictly for its own region
+can still refuse, and true all-region firmware is not provided by this
+project.
 
 ### Does this work on other models?
 
@@ -422,15 +464,18 @@ DVD uses one region number (0–6); `0` is the region-free value. This is **not 
 
 ### Can the player be made region-free (play A and B at the same time)?
 
-Not at the same time on stock firmware. A locked disc insists on its own
-region, so one setting cannot play an A disc and a B disc at once.
+On the tested player, one value does play both: with the helper set to `1`,
+Jigsaw (locked A) and The Hurt Locker (locked B) play in the same session and
+no switching is needed — measured 29 Oct 2026, and confirmed end-to-end with
+the built USB stick.
 
-What does work, without restarting the player: the helper described in
-[Play both regions without restarting the player](#play-both-regions-without-restarting-the-player-advanced)
-lets each disc see its own region — Jigsaw (locked A) plays with `1`, The Hurt
-Locker (locked B) plays with `7`. Still one at a time, but no restart. True
-A+B at the same time needs modified player firmware, which this project does
-not provide. The technical reason is in `docs/region-bitmask-finding.md`.
+That is not a universal guarantee. Discs check the region differently: Jigsaw
+accepts only `1` (it refused `7`), The Hurt Locker is lax (it plays at `1`,
+`2` and `7`). A locked region B disc that checks strictly would need `2`, and
+then region A discs stop playing. Values above `7` are unsafe — `255` blanked
+the picture. The technical reason is in `docs/region-bitmask-finding.md`.
+
+True region-free firmware for every disc is not provided by this project.
 
 ## How it works
 
@@ -439,7 +484,7 @@ The player has a BD-Java debug mode that loads boot classes from a USB drive. Th
 1. **Config file write** — writes both DVD and BD regions to the config file. This works on the tested Australian player; on some UK, US and EU units the value does not survive a reboot (under investigation). DVD also needs the EEPROM write below to survive a reboot.
 2. **EEPROM direct write** — writes the DVD region to the hardware EEPROM at offset 0x200, where the firmware reads it at every boot. Off unless a `DVD_EEPROM` file is on the USB; see [What about DVDs?](#what-about-dvds).
 
-The Blu-ray region is set to the value in `bd_region.txt` (1 = A by default), not to "all regions": the player stores any byte, but for values it does not recognise as a region it uses its own region instead. The per-disc helper described above exploits that: with the byte at `3` the player starts a disc of either region, and the helper sets the region the disc's Java sees. The DVD region defaults to 1 (US) unless overridden by a `dvd_region.txt` file on the USB. The original values are backed up to the USB first. No firmware is modified. No network connection is needed.
+The Blu-ray region is set to the value in `bd_region.txt` (1 = A by default), not to "all regions": the player stores any byte, but for values it does not recognise as a region it uses its own region instead. The per-disc helper described above exploits that: with the byte at `3` the player starts a disc of either region, and the helper sets the region the disc's Java sees. Measured 29 Oct 2026: at `1` both the locked A disc and the locked B disc tested play, because they check the register differently — see `docs/region-bitmask-finding.md`. The DVD region defaults to 1 (US) unless overridden by a `dvd_region.txt` file on the USB. The original values are backed up to the USB first. No firmware is modified. No network connection is needed.
 
 ## Building from source
 
@@ -458,6 +503,14 @@ No proprietary code is included in this repository. The build script operates on
 Region codes: the player accepts `1` (A), `2` (B) and `4` (C) as single region codes. The values were checked against the [Blu-ray specification (PSR 20)](https://videolan.videolan.me/libbluray/player__settings_8h.html) via libbluray, but playback tests on a UB450GN (26 Oct 2026) show stock firmware does **not** treat the byte as a PSR 20 bitmask: `7` falls back to the player's own region. DVD values follow the [DVD region code standard](https://en.wikipedia.org/wiki/DVD_region_code). The BD-Java debug mode is a standard feature of the CVM runtime used in MediaTek-based Blu-ray players.
 
 ## Changelog
+
+**v5.14 (29 Oct 2026)** — per-disc helper default and the measured single-value result.
+
+- The helper's fallback value (used when `psr20_value.txt` is missing or unreadable) is now `1` instead of `7`. Measured 29 Oct 2026: `1` plays the locked region A disc **and** the locked region B disc tested (The Hurt Locker) in one session; `7` makes strict A discs refuse. `usb-files/BDJ-region-helper.jar` rebuilt with `PROBE_METHOD=go` (1,303,267 bytes, SHA-256 `3ed5effad1233c9d46f00f4e45b7c6793fea741b1a8e62fb9332acc0aa48dd6e`). Never use a value above `7` — `255` blanks the picture.
+- Documented that the register set by the helper persists across disc swaps (it is not rebuilt at disc insert, correcting the 28 Oct note), so the stick must stay in the player while watching. A value change only applies when a disc's Java starts fresh — a different disc or a power cycle; reinserting the same disc can resume playback without re-running the helper.
+- Confirmed end-to-end on the player, 29 Oct 2026: with the built stick (helper default `1`), Jigsaw and The Hurt Locker both played.
+- README restructured around the two ways to use it: **Method 1 (both regions, recommended)** first — no build needed, helper jar ships in the repo — then **Method 2 (region switcher)**. Shared setup and values tables stay in one place.
+- Tests: `test_regionpatch_value.py` now covers 0–255 parsing, the `1` default, static `go()` injection and that the shipped jar matches a fresh build of the source (6 checks).
 
 **v5.13 (29 Oct 2026)** — Blu-ray values and documentation.
 

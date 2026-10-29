@@ -1,0 +1,102 @@
+{
+  "goal": "True region-free / simultaneous A+B on the AU DP-UB450 (V127): a locked region A disc and a locked region B disc both play in one power session with one helper build and no psr20_value.txt edit between discs.",
+  "archetype": "explore",
+  "mode": "loop",
+  "terminal_choice": "stop-at-verified",
+  "predicate": "/Users/hemma/git/ub450-tcltv-audio-sync-issue/ub450-region-free/autoresearch/explore-261029-1120/predicate.sh",
+  "predicate_expected": "exit 0, prints MET: both discs played in session <id> at PSR 20 = <value>",
+  "cycle_ceiling": 15,
+  "cycles": 14,
+  "units_history": [],
+  "pending_verify": false,
+  "incumbent": {
+    "mechanism": "config byte 3 + BD-J helper sets PSR 20 from psr20_value.txt",
+    "measured": {
+      "jigsaw_A": {
+        "accepted": [
+          1
+        ],
+        "refused": [
+          7
+        ]
+      },
+      "thl_B": {
+        "accepted": [
+          7
+        ]
+      },
+      "untested_values": [
+        255,
+        0,
+        3,
+        5,
+        6,
+        4
+      ]
+    },
+    "candidate": {
+      "value_file": "255",
+      "jar": "autoresearch/explore-261029-1120/BDJ-region-255.jar",
+      "md5": "a16fd46bd6bf11366be4531ae89ac4be",
+      "sha256": "9a3c752e8c934ef433b42a2e20e46d75d905231a3e854b99124abcb9901a2551"
+    },
+    "result": {
+      "value_1": "Jigsaw (A) and The Hurt Locker (B) both play in one session at PSR 20=1; register persists across disc swaps",
+      "value_7": "THL plays, Jigsaw refused",
+      "value_255": "player screen goes blank - do not use"
+    }
+  },
+  "hops": [
+    {
+      "n": 0,
+      "phase": "round-0",
+      "outcome": "progressed",
+      "note": "predicate script syntax ok, runs, NOT MET (exit 1); all derived commands screened ok; budget 15"
+    },
+    {
+      "n": 1,
+      "phase": "debug",
+      "outcome": "progressed",
+      "note": "TDD: parseValue(0-255) added (red NoSuchMethodException -> green 3/3; mutation v>999 -> red, restored). Candidate jar BDJ-region-255.jar 1,303,229 B sha256 9a3c752e..., md5 a16fd46b..., class 48, run.sh exec present. Served on LAN 192.168.1.120:8002 (200, full size)."
+    },
+    {
+      "n": 2,
+      "phase": "debug",
+      "outcome": "progressed",
+      "note": "value 255 with the rebuilt jar blanked the player; later proven ambiguous (jar ALSO broken: injected invokestatic RegionPatch.run is an instance method; shipped jar calls static RegionPatch.go)."
+    },
+    {
+      "n": 3,
+      "phase": "fix",
+      "outcome": "progressed",
+      "note": "rebuilt with PROBE_METHOD=go (md5 30420d45...); pushed over LAN; helper then wrote a fresh patch_result (get20 before=2, value file=1, get20 after=1) and Jigsaw played."
+    },
+    {
+      "n": 4,
+      "phase": "debug",
+      "outcome": "progressed",
+      "note": "same power session, value 1 unchanged: The Hurt Locker played after Jigsaw. Predicate (one session, one value, both locked discs) MET by observation."
+    },
+    {
+      "n": 5,
+      "phase": "verify",
+      "outcome": "partial",
+      "note": "instrumentation limit: the agent is killed shortly after each BD-J start; later reboots never reached the stick, so THL's register value at its own start is not recorded. PSR reset per disc insert vs persist is unresolved."
+    },
+    {
+      "n": 6,
+      "phase": "fix",
+      "outcome": "progressed",
+      "note": "added test_shipped_helper_calls_static_go (red against the run() jar, green against the shipped jar; mutation-proved). Shipped helper unchanged (sha 38ac33e2...). Stick restored to the documented setup: helper jar, release run.sh, bd_region=3, psr20_value=1, empty dvd_region."
+    },
+    {
+      "n": 7,
+      "phase": "verify",
+      "outcome": "progressed",
+      "note": "Decisive discriminator: after THL, Jigsaw (strict A, refuses 2) played with the same helper patch (buf=4cf06af8, unchanged) => register persisted at 1 across the disc swap => THL played at PSR 20 = 1. Predicate MET: value 1, one session, both locked discs. Revises the 28 Oct note that the engine rebuilds PSR 20 at disc insert."
+    }
+  ],
+  "errors_remaining": 0,
+  "regression_verdict": "STABLE",
+  "untested_gaps": 0
+}

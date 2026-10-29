@@ -1,0 +1,22 @@
+=== UB450 Region Switch v5.13 ===
+Started: Thu 29 Oct 2026 14:54:44 AEDT
+Kernel: Darwin main-mbp.local 27.0.0 Darwin Kernel Version 27.0.0: Tue Aug 11 21:05:27 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T8103 arm64
+Target: DVD=, BD=4
+Config file size: 1219 bytes
+DVD key (IDX_GB_PTT_REGIONCODE) at offset: 127
+BD key (IDX_GB_PTT_BDREGIONCODE) at offset: 201
+DVD value offset: 163
+BD value offset: 237
+Before: DVD=0x04, BD=0x02
+Backup already exists, not overwriting
+Config write VERIFIED: DVD skipped, BD=0x04 (rc=0)
+STEP: Starting EEPROM scan
+DVD target empty — EEPROM write skipped
+STEP: Verifying config values
+After (config): DVD=0x04, BD=0x04
+SUCCESS — BD=4 set via config. DVD unchanged.
+
+Finished: Thu 29 Oct 2026 14:54:44 AEDT
+Unplug the player (or switch it off at the wall), remove the USB, then plug it back in and turn it on.
+STEP: Running diag.sh
+STEP: All done

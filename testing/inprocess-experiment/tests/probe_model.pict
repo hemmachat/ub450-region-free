@@ -1,0 +1,31 @@
+# PICT model for the UB450 in-process probe stubs.
+#
+# Unit under test: the four ARM stubs embedded in RegionEngine.java
+#   getgpr/setgpr : bound 0x1000 (GPR array is 4096 entries)
+#   getpsr/setpsr : bound 0x80   (PSR array is 128 entries)
+#   setpsr(20, v) : special path - write PSR 20 and ask the playback
+#                   engine for its region (results land in GPR 0x800/0x801)
+#
+# Every register is signed int at the JNI boundary, so negative values
+# must fail rather than index before the arrays.  The Java layer can
+# hand negative and out-of-range values straight through: getGPR() in
+# com.philips.bluray.system.RegisterAccess has no range check.
+
+Function: getgpr, setgpr, getpsr, setpsr
+RegClass: negative, zero, twenty, edge127, edge128, mid800, edge0xFFF, over0x1000
+Path: Normal, Fail, Special20
+
+# --- negative always fails -------------------------------------------------
+IF [RegClass] = "negative" THEN [Path] = "Fail";
+
+# --- GPR stubs: 0 .. 0xFFF are valid, 0x1000 and above fail ----------------
+IF [Function] IN {getgpr, setgpr} AND [RegClass] IN {zero, twenty, edge127, edge128, mid800, edge0xFFF} THEN [Path] = "Normal";
+IF [Function] IN {getgpr, setgpr} AND [RegClass] = "over0x1000" THEN [Path] = "Fail";
+
+# --- PSR stubs: 0 .. 0x7F are valid, 0x80 and above fail -------------------
+IF [Function] IN {getpsr, setpsr} AND [RegClass] IN {zero, edge127} THEN [Path] = "Normal";
+IF [Function] IN {getpsr, setpsr} AND [RegClass] IN {edge128, mid800, edge0xFFF, over0x1000} THEN [Path] = "Fail";
+
+# --- only setpsr(20) takes the engine path ---------------------------------
+IF [Function] = "setpsr" AND [RegClass] = "twenty" THEN [Path] = "Special20";
+IF [Function] = "getpsr" AND [RegClass] = "twenty" THEN [Path] = "Normal";

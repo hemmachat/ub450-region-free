@@ -2,3 +2,6 @@ usb-files/BDJ.jar
 .DS_Store
 analysis/
 tests/.targets.*
+__pycache__/
+autoresearch/user-dryrun/
+autoresearch/**/*.jar

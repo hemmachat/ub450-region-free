@@ -104,19 +104,50 @@ public class RegionPatch extends Thread {
         new RegionPatch().start();
     }
 
-    // PSR 20 value from /mnt/sda1/psr20_value.txt (first digit), default 7.
-    // Change the file on the stick (or over the LAN) instead of rebuilding.
+    // PSR 20 value from /mnt/sda1/psr20_value.txt (0-255), default 1.
+    // Value 1 plays locked region A discs and the lax locked B disc used in
+    // testing; 7 makes strict A discs refuse. Never use values above 7.
+    // Java 1.4 constructs only: this runs on the player's CVM.
+    private static int parseValue(int c0, int c1, int c2) {
+        int v = 0;
+        int n = 0;
+        if (c0 >= '0' && c0 <= '9') {
+            v = c0 - '0';
+            n = 1;
+        }
+        if (n == 1 && c1 >= '0' && c1 <= '9') {
+            v = v * 10 + (c1 - '0');
+            n = 2;
+        }
+        if (n == 2 && c2 >= '0' && c2 <= '9') {
+            v = v * 10 + (c2 - '0');
+            n = 3;
+        }
+        if (n == 0 || v > 255) {
+            return -1;
+        }
+        return v;
+    }
+
+    private static int valueOrDefault(int v) {
+        if (v >= 0) {
+            return v;
+        }
+        return 1;
+    }
+
     private static int regionValue() {
+        int v = -1;
         try {
             FileInputStream f = new FileInputStream("/mnt/sda1/psr20_value.txt");
-            int c = f.read();
+            int c0 = f.read();
+            int c1 = f.read();
+            int c2 = f.read();
             f.close();
-            if (c >= '1' && c <= '9') {
-                return c - '0';
-            }
+            v = parseValue(c0, c1, c2);
         } catch (Throwable t) {
         }
-        return 7;
+        return valueOrDefault(v);
     }
 
     public void run() {

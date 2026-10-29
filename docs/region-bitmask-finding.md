@@ -77,5 +77,27 @@ What the player does with each value, from playback tests on the AU UB450
   is why the per-disc helper uses `3` (see below). `7` was never tried with
   the helper, so it is not known whether it opens the same gate.
 - A locked disc compares PSR 20 with its own region: Jigsaw accepted `1` and
-  refused `7`; The Hurt Locker accepted `7`. One value cannot satisfy both at
-  once, which is why true A+B needs the register set per disc.
+  refused `7`; The Hurt Locker accepted `7`. One value cannot satisfy every
+  disc, which is why true A+B needs the register set per disc.
+
+## Register set by the helper (29 Oct 2026)
+
+With the config byte at `3` and the helper setting PSR 20, measured on the
+same three discs:
+
+- Jigsaw (locked A) at `1`: plays. `patch_result.txt`: `get20 before=2`,
+  `value file=1`, `get20 after=1`.
+- The Hurt Locker (locked B) at `1`: plays, in the same session, with no new
+  helper write. It also plays at `7`.
+- Jigsaw at `7`: refused ("mismatch between disc and player region codes").
+- `255`: the picture goes blank; values above `7` are not safe.
+- **The register persists across disc swaps.** Sequence Chernobyl →
+  The Hurt Locker → Jigsaw, no reboot and no file edits: Jigsaw (which
+  refuses `2` and accepts only `1`) played last, so the register was still
+  `1` from the earlier write. Discs that played in between ran under `1` too.
+  This corrects the 28 Oct note that the player rebuilds PSR 20 at disc
+  insert — the patch survives until the VM restarts.
+- Consequence: `1` is the best single value on the tested player (locked A
+  disc and the lax locked B disc both play). A locked B disc that checks
+  strictly would still need `2`.
+

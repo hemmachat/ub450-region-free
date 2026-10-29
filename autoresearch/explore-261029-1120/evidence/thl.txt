@@ -1,0 +1,5 @@
+boot=2016-06-01T00:05:45
+value=1
+result=played
+evidence=helper patch for this VM: get20 before=2, value file=1, get20 after=1 (buf=4cf06af8); THL played same session, no new patch
+discriminator=Jigsaw (refuses 2, accepts only 1) played after THL with the same patch => register still 1 => THL ran at 1
