@@ -36,8 +36,8 @@ Changes:
   shipped jar matches a fresh build of the source (6 checks). Probe suite
   10/10; all other suites unchanged and green.
 
-Asset: `ub450-region-switch-v5.14.zip` (1,187,879 bytes), SHA-256
-`25d133d8d364ebcb1029bb50baaf3c8af8d4c1a2821a8a765f0681719fdd61f5`.
+Asset: `ub450-region-switch-v5.14.zip` (1,187,912 bytes), SHA-256
+`2b6b4aeaec4e97e8a5cb5221cff856c40c9ff1122844ec67e8c7d19d78ad7f3f`.
 
 Contents: `README.md`, `build/build.py`, `usb-files/` (the USB files, the
 helper jar and `psr20_value.txt`; the prebuilt tool `BDJ.jar` is not included —
