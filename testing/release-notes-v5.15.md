@@ -1,3 +1,8 @@
+> **Status (29 Oct 2026, evening):** Method 1 is now **experimental** (a
+> disc's menu can stop taking the remote once the helper runs). `make-usb.py`
+> in this release still offers Method 1 as the default; the current script
+> defaults to Method 2. See the README.
+
 v5.15 adds a guided USB builder, fixes `diag.sh`, and adds unit tests for
 every script that had none. `run.sh` and the helper jar are unchanged.
 

@@ -1,3 +1,9 @@
+> **Superseded (29 Oct 2026, evening):** Method 1 is now **experimental**. A
+> disc's menu can stop taking the remote once the helper has run (Jigsaw: top
+> menu shown, Home worked, no key did anything, register set correctly).
+> Method 2 (region switcher, no stick while watching) is the recommended
+> method. See the README.
+
 v5.14 is a helper and documentation release. `run.sh` is unchanged; the
 per-disc helper jar is rebuilt.
 

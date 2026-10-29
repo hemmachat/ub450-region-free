@@ -4,22 +4,26 @@ Play Blu-ray and DVD discs from other regions on a DP-UB450, DP-UB150 or
 similar MediaTek-based player. No soldering, no permanent changes, fully
 reversible.
 
-> **One value, both regions — measured, not universal.** With the per-disc
-> helper and its value set to `1`, the tested player plays a locked region A
-> disc **and** a locked region B disc in the same session, with no switching
-> (Jigsaw and The Hurt Locker, 29 Oct 2026). Discs differ in how strictly they
-> check the region: `7` is not "all regions", and a disc that checks strictly
-> for region B needs `2`, which then locks out region A discs. There is no
-> value guaranteed to play every disc — see the table in
-> [Method 1](#method-1--play-both-regions-recommended).
-> True all-region firmware is not provided by this project.
+> **Use Method 2.** It sets the player to one region at a time, and needs no
+> USB while watching.
+>
+> Method 1 (the per-disc helper) is **experimental**. It sets the region
+> correctly, but on 29 Oct 2026 a disc's menu stopped taking the remote once
+> the helper had run (Jigsaw: top menu shown, Home worked, no key did
+> anything). The byte `3` it relies on also does not open the player's gate
+> when the stick is out — a locked disc is refused before its Java starts.
+> Method 1's one measured success: with the value `1`, a locked region A disc
+> **and** the tested locked region B disc played in the same session (Jigsaw
+> and The Hurt Locker, 29 Oct 2026). Discs differ in how strictly they check
+> the region; `7` is not "all regions". No value is guaranteed to play every
+> disc. True all-region firmware is not provided by this project.
 
 There are two ways to use it:
 
 | Method | What it does | USB while watching |
 |---|---|---|
-| **[Method 1 — play both regions](#method-1--play-both-regions-recommended)** (recommended) | one value (`1`) plays locked A and the tested locked B discs; nothing to change between discs | stays in the player |
-| **[Method 2 — region switcher](#method-2--region-switcher-no-stick-while-watching)** | sets the player to one region (`1`, `2` or `4`) at a time | only while the tool runs |
+| **[Method 1 — play both regions](#method-1--play-both-regions-experimental)** (experimental) | one value (`1`) plays locked A and the tested locked B discs; disc menus can stop responding | stays in the player |
+| **[Method 2 — region switcher](#method-2--region-switcher-no-stick-while-watching)** (recommended) | sets the player to one region (`1`, `2` or `4`) at a time | only while the tool runs |
 
 Both start by [downloading the repository](#common-setup); building `BDJ.jar` is only needed for Method 2.
 
@@ -32,7 +36,7 @@ Both start by [downloading the repository](#common-setup); building `BDJ.jar` is
 - **DP-UB450 or DP-UB150** (tested on UB450GN, Australia). May also work on UB154, UB159. See "Does this work on other models?" below
 - **A USB drive** (any size, formatted as **FAT32** — most already are; FAT16 also worked on the tested player)
 - **A computer** (Mac, Windows with WSL, or Linux)
-- **A Blu-ray disc with BD-J that the player can currently play** — same region as its current setting, or a region-free/A+B disc. Most major-studio discs have BD-J; to check on a computer, open the disc and look for a `BDMV/JAR/` folder containing one or more `.jar` files (see "How do I check the disc has BD-J?" below). Do not rely on the disc from the other region you want to play: it can stop at the region-error screen before its Java starts, so the script never runs. If the script does not start, try another playable disc with BD-J.
+- **A Blu-ray disc with BD-J that the player can currently play** — same region as its current setting, or a region-free/A+B disc. Most major-studio discs have BD-J; to check on a computer, open the disc and look for a `BDMV/JAR/` folder containing one or more `.jar` files (see "How do I check the disc has BD-J?" below). Do not rely on the disc from the other region you want to play: with the region switcher it can stop at the region-error screen before its Java starts, so the script never runs. (With the Method 1 helper loaded, a mismatched disc's Java does start — measured 29 Oct 2026.) If the script does not start, try another playable disc with BD-J.
 Everything above is needed for both methods. **Method 2 only** also needs:
 
 - **The firmware update file** (`PANA_DVD.FRM`) — download it from the manufacturer's support site for the UB450 or UB150. You need the file, not to install the update
@@ -85,21 +89,29 @@ method, checking every copied file against the repository by SHA-256:
 python3 make-usb.py
 ```
 
-- **Method 1:** choose `1`; it asks for the USB path and the region value
-  (default `1`).
-- **Method 2:** choose `2`; it asks for the Blu-ray region and the DVD region
-  (or `skip`) and copies `usb-files/BDJ.jar` — build it first (common step 2),
-  or pass `--jar /path/to/BDJ.jar`.
+- **Method 2 (recommended, the default):** press Return; it asks for the
+  Blu-ray region and the DVD region (or `skip`) and copies `usb-files/BDJ.jar`
+  — build it first (common step 2), or pass `--jar /path/to/BDJ.jar`.
+- **Method 1 (experimental):** choose `1`; it asks for the USB path and the
+  region value (default `1`). Read [its limits](#method-1--play-both-regions-experimental)
+  first.
 
 It never deletes anything, and it only overwrites existing files after you
-confirm — `--yes` skips that prompt for scripted use:
+confirm — `--yes` skips that prompt for scripted use, and picks Method 2
+unless you pass `--method`:
 `python3 make-usb.py --method 1 --usb /Volumes/USB --yes` (Method 1) or
 `--method 2 --bd 2 --dvd skip --yes` (Method 2).
 
 This needs Python 3, which Method 1 does not otherwise require — the manual
 copy in its setup section does the same thing.
 
-## Method 1 — play both regions (recommended)
+## Method 1 — play both regions (experimental)
+
+> **Experimental — not the recommended method.** Steps are here for people
+> testing or improving it. On 29 Oct 2026 a disc's menu stopped taking the
+> remote after the helper ran (see "The disc menu stops taking the remote"
+> below). Use [Method 2](#method-2--region-switcher-no-stick-while-watching)
+> to watch a disc.
 
 One value, `1`, plays the tested locked region A disc **and** the tested locked
 region B disc in the same session. There is nothing to change between discs:
@@ -142,17 +154,31 @@ The player must store the `3` once. With the stick in the player:
 To see what the run did, plug the stick into a computer afterwards:
 `region_log.txt` should say `Config write VERIFIED: … BD=0x03`.
 
-If you already ran the tool before, the byte is probably `3` already; play a
-locked region A disc to check. It shows its region message only if the gate
-is closed.
+If you already ran the tool before, the byte is probably `3` already. A
+locked region A disc still shows its region message if you start it **without**
+the stick: the byte is not enough on its own, the disc's Java only starts
+when the helper is loaded (measured 29 Oct 2026).
 
 ### Play
 
-Keep the stick in the player and insert any disc; wait ~20 s.
+Keep the stick in the player and insert any disc. The helper applies the
+value about 10 seconds after the disc's Java starts.
 
-Tested on the Australian UB450 (29 Oct 2026): Jigsaw (locked A) plays,
-The Hurt Locker (locked B) plays, Chernobyl (A+B) plays. Disc swaps need
-nothing — the value stays set for the session.
+Tested on the Australian UB450 (29 Oct 2026): The Hurt Locker (locked B)
+plays, Chernobyl (A+B) plays, Jigsaw (locked A) plays — but the remote can
+stop working on the disc's menu about 10 seconds after it appears, see the
+limit below.
+
+**The disc menu stops taking the remote (measured 29 Oct 2026, Jigsaw).** The
+top menu appeared, Home still worked, but Left, Right and Play did nothing.
+The helper had done its job — `patch_result.txt` on the stick read
+`get20 before=2`, `value file=1`, `get20 after=1` — so this comes from the
+helper, not from the disc. The same disc played earlier that day with the
+stick in, so the break may depend on pressing keys after the value is applied
+(about 10 seconds after the disc's Java starts); that timing is not confirmed.
+If a menu takes no input, use
+[Method 2](#method-2--region-switcher-no-stick-while-watching) to set that
+disc's own region and play it without the stick.
 
 ### The value to use
 
@@ -165,10 +191,11 @@ nothing — the value stays set for the session.
 
 Discs do not all check the region the same way. Jigsaw (locked A) accepts only
 `1` and refuses `7`. The Hurt Locker (locked B) accepted `7`, and it also
-played with the player set to `1`. So `1` is the best single value on the
-tested player: it plays the locked A disc and The Hurt Locker in one session,
-with no edit between discs. A locked B disc that checks strictly would need
-`2` — and then region A discs stop playing. **Never use a value above `7`** —
+played with the player set to `1`. So `1` is the value to try first: it played
+the locked A disc and The Hurt Locker in one session, with no edit between
+discs. A locked B disc that checks strictly would need `2` — and then region
+A discs stop playing. Remember the warning above: this worked on 29 Oct 2026
+and failed on the same disc that evening. **Never use a value above `7`** —
 `255` turned the picture off on the tested player. If `psr20_value.txt` is
 missing or holds no number, the helper uses `1`.
 
@@ -180,7 +207,9 @@ missing or holds no number, the helper uses `1`.
    need. Save the file.
 4. Eject the USB from the computer and put it back in the player.
 5. Insert a disc whose Java has not just started — a different disc, or any
-   disc after a power cycle. The film starts about 10 seconds later.
+   disc after a power cycle. The helper reads the value about 10 seconds
+   after the disc's Java starts. If the disc's menu is still on screen when
+   that happens, it may stop responding — use Method 2 for that disc.
 
 The value is read when a disc's Java starts. Reinserting the **same** disc can
 resume the previous playback instead; the helper then does not run again and
@@ -197,6 +226,9 @@ For the tested discs, `1` needs no change at all.
 - A locked B disc that checks strictly needs `2`, which then locks out region
   A discs.
 - The player must have the byte at `3` (the first run above).
+- The disc's menu can stop taking the remote about 10 seconds after it
+  appears (measured on Jigsaw, 29 Oct 2026). Play a disc that needs its menu
+  with Method 2 instead.
 
 The helper writes **`patch_result.txt`** on the stick each time a disc's Java starts,
 with the region it read before and after the change (`get20 before=`,
@@ -314,8 +346,8 @@ Then repeat [Run it](#run-it) and unplug the player at the end.
 Tested on a DP-UB450GN (Australia, firmware V127), 26-29 Oct 2026: Jigsaw
 (locked A) plays with `1`; The Hurt Locker (locked B) plays with `2` (and with
 `7`, which the player treats as its own region); Chernobyl (A+B) plays with any
-value. To play both regions without switching, use
-[Method 1](#method-1--play-both-regions-recommended).
+value. Playing both regions without switching is the idea behind the
+[experimental Method 1](#method-1--play-both-regions-experimental).
 
 ## How to undo it
 
@@ -349,6 +381,7 @@ Then add the one that matches what happened:
 | The values look wrong from the start | `.config_backup.txt`, `.bd_backup.bin`, `.dvd_backup.bin`, `.bd_offset.txt`, `.dvd_offset.txt` — saved on the **first** run only, so they hold the values from before the tool wrote anything. |
 | A DVD region does not stick, or you used `DVD_EEPROM` | `.eeprom_dvd_backup.bin`, `.eeprom_device.txt` (if present) and the `diag_output/` folder. |
 | The per-disc helper refuses a disc | `patch_result.txt` (written on the stick each time a disc's Java starts), plus the current `bd_region.txt` and `psr20_value.txt`. |
+| The disc menu shows but the remote does nothing (per-disc helper) | `patch_result.txt`, `psr20_value.txt` and `bd_region.txt`. If it reads `get20 after=1`, the helper worked and the menu is the known limit — play that disc with Method 2. |
 | Nothing above explains it | The `diag_output/` folder — see below. |
 
 **`diag_output/`** is a deeper read-only check. `run.sh` runs `diag.sh`
@@ -409,6 +442,10 @@ The disc's menu software is loading from the USB. Wait 30–60 seconds. If it st
 
 With the per-disc helper (advanced) a blank screen right after a disc starts means the helper upset the player: remove the USB, power-cycle, and insert the disc again without the stick. The film should play in the player's own region.
 
+### The disc menu appears but the remote does nothing
+
+With the per-disc helper (Method 1) this was measured on Jigsaw, 29 Oct 2026: the top menu showed and Home worked, but Left, Right and Play did nothing. The helper still set the region correctly, so this is a limit of the helper, not the disc. Play that disc with [Method 2](#method-2--region-switcher-no-stick-while-watching) — set its own region, no stick while watching. See [the limit](#limits) in Method 1.
+
 ### How do I check the disc has BD-J?
 
 1. Put the disc in a computer with a Blu-ray drive.
@@ -422,11 +459,13 @@ No Blu-ray drive? If you have a disc image or backup folder, MakeMKV or any Blu-
 
 It depends which method you use:
 
-- **Method 1 (both regions):** yes — the stick must **stay in the player**,
-  because the helper runs when each disc starts.
-- **Method 2 (region switcher):** remove the stick after the run. The script
-  only has to run once per region change, and `BDJ_DEBUG` changes how the
-  player loads disc software.
+- **Method 2 (region switcher, recommended):** remove the stick after the run.
+  The script only has to run once per region change, and `BDJ_DEBUG` changes
+  how the player loads disc software.
+- **Method 1 (experimental):** yes, the stick must **stay in the player**,
+  because the helper runs when each disc starts. Leaving it in is also how a
+  disc's menu can stop taking the remote — see
+  [The disc menu appears but the remote does nothing](#the-disc-menu-appears-but-the-remote-does-nothing).
 
 If a disc ever shows a blank screen, remove the USB and power-cycle the player;
 with no stick the player behaves normally.
@@ -488,16 +527,20 @@ DVD uses one region number (0–6); `0` is the region-free value. This is **not 
 
 ### Can the player be made region-free (play A and B at the same time)?
 
-On the tested player, one value does play both: with the helper set to `1`,
-Jigsaw (locked A) and The Hurt Locker (locked B) play in the same session and
-no switching is needed — measured 29 Oct 2026, and confirmed end-to-end with
-the built USB stick.
+**Only as an experiment, and not reliably.** With the per-disc helper
+(Method 1, [experimental](#method-1--play-both-regions-experimental)) set to
+`1`, the locked A disc and the locked B disc tested played in the same
+session on 29 Oct 2026. Later the same day the same setup left that disc's
+menu dead: the top menu appeared, Home worked, no key did anything, and the
+region had been set correctly. Method 2 (set the player's own region) is the
+route that works. Method 1 is kept for further testing.
 
-That is not a universal guarantee. Discs check the region differently: Jigsaw
-accepts only `1` (it refused `7`), The Hurt Locker is lax (it plays at `1`,
-`2` and `7`). A locked region B disc that checks strictly would need `2`, and
-then region A discs stop playing. Values above `7` are unsafe — `255` blanked
-the picture. The technical reason is in `docs/region-bitmask-finding.md`.
+That is not a universal guarantee either. Discs check the region differently:
+the locked A disc accepts only `1` (it refused `7`), the locked B disc is lax
+(it plays at `1`, `2` and `7`). A locked region B disc that checks strictly
+would need `2`, and then region A discs stop playing. Values above `7` are
+unsafe — `255` blanked the picture. The technical reason is in
+`docs/region-bitmask-finding.md`.
 
 True region-free firmware for every disc is not provided by this project.
 
@@ -508,7 +551,7 @@ The player has a BD-Java debug mode that loads boot classes from a USB drive. Th
 1. **Config file write** — writes both DVD and BD regions to the config file. This works on the tested Australian player; on some UK, US and EU units the value does not survive a reboot (under investigation). DVD also needs the EEPROM write below to survive a reboot.
 2. **EEPROM direct write** — writes the DVD region to the hardware EEPROM at offset 0x200, where the firmware reads it at every boot. Off unless a `DVD_EEPROM` file is on the USB; see [What about DVDs?](#what-about-dvds).
 
-The Blu-ray region is set to the value in `bd_region.txt` (1 = A by default), not to "all regions": the player stores any byte, but for values it does not recognise as a region it uses its own region instead. The per-disc helper described above exploits that: with the byte at `3` the player starts a disc of either region, and the helper sets the region the disc's Java sees. Measured 29 Oct 2026: at `1` both the locked A disc and the locked B disc tested play, because they check the register differently — see `docs/region-bitmask-finding.md`. The DVD region defaults to 1 (US) unless overridden by a `dvd_region.txt` file on the USB. The original values are backed up to the USB first. No firmware is modified. No network connection is needed.
+The Blu-ray region is set to the value in `bd_region.txt` (1 = A by default), not to "all regions": the player stores any byte, but for values it does not recognise as a region it uses its own region instead. The per-disc helper described above exploits that: with the byte at `3` **and the helper loaded**, the player starts a disc of either region, and the helper sets the region the disc's Java sees. With the stick out, a locked disc is refused before its Java starts (29 Oct 2026). Measured 29 Oct 2026: at `1` both the locked A disc and the locked B disc tested play natively, because they check the register differently — see `docs/region-bitmask-finding.md`. The DVD region defaults to 1 (US) unless overridden by a `dvd_region.txt` file on the USB. The original values are backed up to the USB first. No firmware is modified. No network connection is needed.
 
 ## Building from source
 
@@ -534,7 +577,7 @@ sh tests/test_eeprom_pairwise.sh         # DVD EEPROM guards
 sh tests/test_us_portability.sh          # bash -n portability
 sh tests/test_tmo.sh                     # timeout wrapper fallback
 
-python3 tests/test_setup_usb.py          # make-usb.py: both layouts, refusals
+python3 tests/test_setup_usb.py          # make-usb.py: both layouts, default method, refusals
 python3 tests/test_build_py.py           # build/build.py: patch, exec, jar
 python3 tests/test_downgrade_class.py    # downgrade_class.py: class 48
 python3 tests/test_build_inprocess.py    # probe injection: static go()
@@ -552,6 +595,13 @@ shell. They do not need a player or a firmware file.
 Region codes: the player accepts `1` (A), `2` (B) and `4` (C) as single region codes. The values were checked against the [Blu-ray specification (PSR 20)](https://videolan.videolan.me/libbluray/player__settings_8h.html) via libbluray, but playback tests on a UB450GN (26 Oct 2026) show stock firmware does **not** treat the byte as a PSR 20 bitmask: `7` falls back to the player's own region. DVD values follow the [DVD region code standard](https://en.wikipedia.org/wiki/DVD_region_code). The BD-Java debug mode is a standard feature of the CVM runtime used in MediaTek-based Blu-ray players.
 
 ## Changelog
+
+**v5.16 (29 Oct 2026)** — per-disc helper demoted to experimental. Documentation and builder only; `run.sh` and the helper jar are byte-identical to v5.15, so nothing that runs on the player changed.
+
+- **Method 1 is now experimental; Method 2 is the recommended method.** The README intro, method table, Method 1 heading (anchor is now `#method-1--play-both-regions-experimental`), limits, FAQ, `usb-files/USB-README.txt` and `docs/region-bitmask-finding.md` say so and point to Method 2. `make-usb.py` labels Method 1 experimental, offers Method 2 as the default answer, and `--yes` without `--method` now writes a Method 2 stick; its next-steps text warns about the menu limit. Test: `tests/test_setup_usb.py` — "No --method picks the recommended method" (written failing first; the default built the Method 1 stick before the change).
+- With the helper loaded and the region set correctly, Jigsaw's top menu appeared but Left, Right and Play did nothing (Home still worked). `patch_result.txt` showed `get20 before=2`, `value file=1`, `get20 after=1`, so the value was applied — this is the helper, not the disc. The same stick and value played the same disc earlier that day, so the break may depend on pressing keys after the value is applied (~10 s after the disc's Java starts); not confirmed. Method 1 (Play, Limits, FAQ) now says to use Method 2 for a disc that needs its menu; `docs/region-bitmask-finding.md` records the run.
+- Corrected an earlier claim: the byte `3` alone does not open the native gate. With the stick **out**, a Jigsaw start at `3` stops at the region-error screen before its Java runs (29 Oct 2026). The gate only opens while the helper is loaded.
+- Every current-facing doc re-checked against the code, the firmware and the 29 Oct runs: `usb-files/USB-README.txt` (region switch first, timing and gate corrections), `docs/region-bitmask-finding.md` (status "answered", helper section experimental), status headers on the v5.13–v5.15 release notes, `tests/README.md` (Python suites listed; PICT count corrected 630 → 651), and the `RegionPatch.java` header comment. All README anchors verified.
 
 **v5.15 (29 Oct 2026)** — guided USB builder, a `diag.sh` fix and unit tests.
 

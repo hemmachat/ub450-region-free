@@ -11,7 +11,7 @@ config and USB trees.
   against fake device files through the `EEPROM_CANDIDATES` hook and needs `zsh`.
 - `test_targets_pict.sh` — 66-case PICT pairwise suite plus 24 seeded cases for
   `bd_region.txt` / `dvd_region.txt` parsing, validation, writes and RESTORE
-  (630 assertions). It runs the real `run.sh` end-to-end and needs `zsh`
+  (651 assertions). It runs the real `run.sh` end-to-end and needs `zsh`
   (macOS dash has no `printf '\x..'`); `sync` is stubbed because the test checks
   bytes and result files, not durability. The PICT model is in the file header.
 - `test_us_portability.sh` — simulates the US player's stripped busybox (no
@@ -19,6 +19,13 @@ config and USB trees.
   the region keys and writes the Blu-ray byte (5 assertions).
 - `test_tmo.sh` — extracts the `tmo` helper from `run.sh` and checks piped
   stdin, kill-on-timeout and exit-code passthrough (4 assertions).
+- `test_setup_usb.py` — `make-usb.py`: both stick layouts, the helper jar
+  copied byte-for-byte, custom and refused values, the default method (Method 2
+  unless `--method` is given, since Method 1 is experimental), missing target
+  and a clean no-input message (7 checks).
+- `test_build_py.py`, `test_build_inprocess.py`, `test_downgrade_class.py`,
+  `test_diag_sh.py` — the build scripts, the probe-call injection, the class
+  downgrade and `diag.sh` (5 + 3 + 2 + 2 checks).
 - `persistence-test-run.sh`, `watch-region.sh`, `au-validation-run.sh` — one-off
   player-side diagnostics, not part of the local suite. `persistence-test-run.sh`
   also probes `/proc/<bdpprog>/mem`, pagemap and `/dev/mem` read-only.
@@ -29,4 +36,6 @@ Run everything:
 
 ```sh
 for t in tests/test_*.sh; do sh "$t" || exit 1; done
+for t in tests/test_*.py; do python3 -I "$t" || exit 1; done
+sh testing/inprocess-experiment/tests/run.sh   # probe suite, 10 checks
 ```

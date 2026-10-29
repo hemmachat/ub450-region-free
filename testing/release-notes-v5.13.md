@@ -1,3 +1,8 @@
+> **Status (29 Oct 2026, evening):** the per-disc helper introduced here is
+> **experimental** — a disc's menu can stop taking the remote once the helper
+> has run. Method 2 (region switcher) is the recommended method. See the
+> README.
+
 v5.13 is a tool and documentation release. `run.sh` changes:
 - `bd_region.txt` accepts `3`, `5` and `6` as well as `1`, `2` and `4`. The
   player stores them but uses its own region for values it does not recognise;

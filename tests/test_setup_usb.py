@@ -114,7 +114,18 @@ def test_refuses_missing_target_and_bad_region():
     assert p2.returncode != 0, "bd 7 must be refused"
 
 
+def test_no_method_defaults_to_the_recommended_method():
+    # Method 1 is experimental: a disc's menu can stop taking the remote once
+    # the helper has run (29 Oct 2026). Method 2 is the recommended method, so
+    # a run without --method must not build the Method 1 stick.
+    d = tempfile.mkdtemp(prefix="usb_default_")
+    run(["--usb", d, "--yes"])
+    assert "psr20_value.txt" not in os.listdir(d), \
+        "the default built the experimental Method 1 stick instead of Method 2"
+
+
 def main():
+    check("No --method picks the recommended method", test_no_method_defaults_to_the_recommended_method)
     check("Method 1 writes the helper stick", test_method1_writes_helper_layout)
     check("Method 1 takes a custom value and refuses >7",
           test_method1_custom_value_and_rejects_unsafe)

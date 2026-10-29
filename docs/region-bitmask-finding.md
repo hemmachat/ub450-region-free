@@ -1,7 +1,10 @@
 # Blu-ray region: is the config byte a bitmask? (finding, 28 Oct 2026)
 
-Status: **open question, one live test decides it.** It has to run on an
-Australian UB450 (see "Test").
+Status: **answered (29 Oct 2026).** `3` is not an A+B bitmask: the player
+falls back to its own region. With the per-disc helper loaded, `3` does let
+the player start a disc of either region, which is what the helper uses. The
+sections below are kept in the order they were written; "Measured behaviour"
+and "Register set by the helper" hold the results.
 
 ## What the firmware does
 
@@ -73,20 +76,37 @@ What the player does with each value, from playback tests on the AU UB450
 - `3`, `7` and other values are stored as-is. The player then uses its own
   region: on the tested unit the region register (PSR 20) reads `2`, region B.
 - At `3` the player does not block a disc of the other region before BD-J
-  starts: both Jigsaw and The Hurt Locker got as far as their own Java. That
-  is why the per-disc helper uses `3` (see below). `7` was never tried with
-  the helper, so it is not known whether it opens the same gate.
+  starts **while the helper is loaded**: both Jigsaw and The Hurt Locker got
+  as far as their own Java with the stick in. That is why the per-disc helper
+  uses `3` (see below). Correction, 29 Oct 2026: with the stick **out**, a
+  Jigsaw start at `3` stops at the region-error screen before its Java runs,
+  so the byte alone does not open the gate. `7` was never tried with the
+  helper, so it is not known whether it opens the same gate.
 - A locked disc compares PSR 20 with its own region: Jigsaw accepted `1` and
   refused `7`; The Hurt Locker accepted `7`. One value cannot satisfy every
   disc, which is why true A+B needs the register set per disc.
 
-## Register set by the helper (29 Oct 2026)
+## Register set by the helper (29 Oct 2026, experimental)
+
+**Status: experimental.** The helper sets the register correctly, but it can
+make a disc's menu stop taking the remote (see the bullet below), and the byte
+`3` it depends on does not open the player's gate when the stick is out. The
+supported route is the region switch (Method 2): set byte 237 to `1`, `2` or
+`4` and play without the stick.
 
 With the config byte at `3` and the helper setting PSR 20, measured on the
 same three discs:
 
 - Jigsaw (locked A) at `1`: plays. `patch_result.txt`: `get20 before=2`,
   `value file=1`, `get20 after=1`.
+- **The disc menu can stop taking the remote** (measured 29 Oct 2026, same
+  Jigsaw disc, same stick): the top menu appeared, Home worked, but Left,
+  Right and Play did nothing — with `patch_result.txt` again showing
+  `get20 before=2` / `get20 after=1`, so the region value was applied. Remove
+  the stick and set the disc's own region (Method 2) to play such a disc.
+  The helper replaces the player's misc interface with its own; what that
+  breaks and why keys stop is not yet known, and the same disc had played
+  earlier that day with the stick in.
 - The Hurt Locker (locked B) at `1`: plays, in the same session, with no new
   helper write. It also plays at `7`.
 - Jigsaw at `7`: refused ("mismatch between disc and player region codes").

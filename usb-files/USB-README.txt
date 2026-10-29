@@ -1,4 +1,4 @@
-USB contents — region switch v5.15
+USB contents — region switch v5.16
 =================================
 
 Factory limitation: the player stores one Blu-ray region code at a time
@@ -8,11 +8,22 @@ below set to 1, the tested locked A disc and the tested locked B disc both
 play in one session (29 Oct 2026). A disc that checks strictly for region B
 needs 2, which then locks out region A.
 
-PER-DISC REGION (no restart)
-----------------------------
-With the config byte at 3, the player starts a disc of either region, and
-BDJ.jar sets the region register about 10 seconds after the disc starts to
-the first line of psr20_value.txt:
+USE THE REGION SWITCH INSTEAD. Set bd_region.txt to 1, 2 or 4, run this stick
+once, then unplug the player at the wall and remove the stick: the player
+keeps that region and needs no stick while watching. The helper jar also runs
+run.sh, so this works with either BDJ.jar on the stick.
+
+PER-DISC REGION (experimental, no restart)
+------------------------------------------
+On 29 Oct 2026 a disc's menu stopped taking the remote once the helper had
+run: the top menu appeared, Home worked, but Left, Right and Play did
+nothing. The region had been set correctly. If that happens, use the region
+switch instead.
+
+With the config byte at 3 **and the helper loaded**, the player starts a disc
+of either region (with the stick out a locked disc shows the region message
+before its Java starts). BDJ.jar sets the region register about 10 seconds
+after the disc starts to the first line of psr20_value.txt:
 
   1 = region A; also plays The Hurt Locker (tested 29 Oct 2026)
   2 = region B (strict B discs; The Hurt Locker also plays at 1)
@@ -33,9 +44,11 @@ Steps to switch:
 3. On a computer, set the first line of psr20_value.txt. Save.
 4. Eject the USB from the computer, put it back in the player.
 5. Insert a disc whose Java starts fresh (a different disc, or after a power
-   cycle); the film starts about 10 seconds later.
+   cycle). The value is applied about 10 seconds after the disc's Java starts.
 Reinserting the same disc can resume playback, and then the new value is not
-applied. Keep the USB in the player while watching.
+applied. Keep the USB in the player while watching — and note that a disc
+menu still on screen when the value is applied can stop taking the remote
+(29 Oct 2026); use the region switch for such a disc.
 
 This applies to Blu-ray only. DVDs switch differently:
 1. Set dvd_region.txt (0=free, 1=US, 2=Europe, 3=SE Asia, 4=Australia,

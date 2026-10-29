@@ -7,7 +7,7 @@ import com.philips.bluray.media.util.NativeCopier;
 import com.philips.bluray.system.RegisterAccess;
 
 // Put ARM register stubs in an executable allocation and redirect the
-// JbiMiscProxy target (fixed address 0x010fec00) to them, then set PSR 20 = 7.
+// JbiMiscProxy target (fixed address 0x010fec00) to them, then set PSR 20 to the first number in /mnt/sda1/psr20_value.txt (default 1; experimental: can make a disc's menu stop taking the remote).
 public class RegionPatch extends Thread {
     // Self-contained ARM stubs; each returns 0 on success, 1 on out-of-range.
     // setpsr: *g_psr[reg] = value        (g_psr = *(0x010fc27c))

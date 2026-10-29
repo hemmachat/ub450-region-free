@@ -4,8 +4,10 @@
 Asks which method you want and the few values that matter, writes the stick
 and verifies every file against the repository by SHA-256.
 
-  Method 1 (recommended): play both regions. USB stays in the player.
-  Method 2: region switcher. One region at a time, USB only while it runs.
+  Method 2 (recommended): region switcher. One region at a time, USB only
+  while it runs.
+  Method 1 (experimental): play both regions. USB stays in the player, but a
+  disc's menu can stop taking the remote once the helper has run.
 
 Run:  python3 make-usb.py
 Flags (for scripted use): --method 1|2 --usb DIR [--psr20 N] [--bd 1|2|4]
@@ -98,7 +100,7 @@ def main():
     ap.add_argument("--yes", action="store_true", help="do not ask for confirmation")
     a = ap.parse_args()
 
-    method = a.method or ("1" if a.yes else ask("Which method? 1 = both regions (recommended), 2 = region switcher", "1"))
+    method = a.method or ("2" if a.yes else ask("Which method? 1 = both regions (experimental), 2 = region switcher (recommended)", "2"))
     if method not in ("1", "2"):
         return fail("method must be 1 or 2")
     usb = a.usb or ask("USB stick path (the mounted volume)")
@@ -111,7 +113,8 @@ def main():
             return fail("value %d is not allowed: use 0-7. 255 blanks the player; never go above 7." % psr20)
         if psr20 == 0:
             print("Warning: 0 is untested on the player.")
-        plan = "Method 1 (both regions): helper jar, bd_region=3, psr20=%d, DVD left alone" % psr20
+        plan = ("Method 1 (both regions, experimental): helper jar, bd_region=3, "
+                "psr20=%d, DVD left alone" % psr20)
     else:
         bd = a.bd or ("1" if a.yes else ask("Blu-ray region: 1 = A, 2 = B, 4 = C", "1"))
         if bd not in ("1", "2", "4"):
@@ -157,6 +160,8 @@ def main():
         print("  2. Insert a playable Blu-ray with BD-J, wait ~30 s (first run only).")
         print("  3. Unplug the player, power on once more, then play any disc.")
         print("  Keep the stick in the player while watching.")
+        print("  Experimental: a disc's menu can stop taking the remote after the helper")
+        print("  runs. Use --method 2 for a disc whose menu you need.")
     else:
         print("  1. Unplug the player, insert the stick, power on.")
         print("  2. Insert a playable Blu-ray with BD-J, wait ~30 s.")
