@@ -35,6 +35,10 @@ Timing limit (unchanged, now documented)
   shows the region message even with a 10 s or 90 s patch.
 
 Changed
+- **Method 1 is now the recommended method**, and `make-usb.py` defaults to it
+  (interactive and `--yes`); the menu freeze was the only reason to prefer
+  Method 2. `tests/test_setup_usb.py` was changed first and failed until the
+  default moved to Method 1.
 - `usb-files/BDJ-region-helper.jar` rebuilt: 1,305,084 bytes, SHA-256
   `7d69c5d540800fd5093868840a952bafa21ed63dc6e3c4559278195a2fc0c09b`. Source
   `testing/inprocess-experiment/RegionPatch.java`.

@@ -115,13 +115,16 @@ def test_refuses_missing_target_and_bad_region():
 
 
 def test_no_method_defaults_to_the_recommended_method():
-    # Method 1 is experimental: a disc's menu can stop taking the remote once
-    # the helper has run (29 Oct 2026). Method 2 is the recommended method, so
-    # a run without --method must not build the Method 1 stick.
+    # Method 1 is the recommended method: since 30 Oct 2026 the helper restores
+    # the player interface, so disc menus keep working. A run without --method
+    # must build the Method 1 stick: the helper jar plus psr20_value.txt.
     d = tempfile.mkdtemp(prefix="usb_default_")
     run(["--usb", d, "--yes"])
-    assert "psr20_value.txt" not in os.listdir(d), \
-        "the default built the experimental Method 1 stick instead of Method 2"
+    assert "psr20_value.txt" in os.listdir(d), \
+        "the default did not build the recommended Method 1 stick"
+    helper = os.path.join(USB, "BDJ-region-helper.jar")
+    assert sha(os.path.join(d, "BDJ.jar")) == sha(helper), \
+        "the default BDJ.jar is not the shipped helper"
 
 
 def main():

@@ -4,26 +4,26 @@ Play Blu-ray and DVD discs from other regions on a DP-UB450, DP-UB150 or
 similar MediaTek-based player. No soldering, no permanent changes, fully
 reversible.
 
-> **Method 2 (recommended)** sets the player to one region at a time and needs
-> no USB while watching.
->
-> **Method 1 (the per-disc helper) works since 30 Oct 2026:** with the USB in,
-> it plays both regions in one session with working menus. Verified on the
-> player: Chernobyl (A+B), Jigsaw (locked A) and The Hurt Locker (locked B)
-> all played in one session. One rule: **the first disc after a boot must be
+> **Method 1 (recommended, the per-disc helper) works since 30 Oct 2026:** with
+> the USB in, it plays both regions in one session with working menus. Verified
+> on the player: Chernobyl (A+B), Jigsaw (locked A) and The Hurt Locker (locked
+> B) all played in one session. One rule: **the first disc after a boot must be
 > one the player starts and that reaches its menu** — an A+B disc, or any disc
 > from the player's own region (locked is fine). A disc from the other region
 > is refused by its own check before the helper runs. The byte `3` it relies
 > on does not open the player's gate when the stick is out. Discs differ in
 > how strictly they check; `7` is not "all regions". True all-region firmware
 > is not provided by this project.
+>
+> **Method 2** sets the player to one region at a time and needs no USB while
+> watching.
 
 There are two ways to use it:
 
 | Method | What it does | USB while watching |
 |---|---|---|
-| **[Method 1 — play both regions](#method-1--play-both-regions)** | one value (`1`) plays the tested locked A and B discs; start with a disc the player can play (A+B or its own region) | stays in the player |
-| **[Method 2 — region switcher](#method-2--region-switcher-no-stick-while-watching)** (recommended) | sets the player to one region (`1`, `2` or `4`) at a time | only while the tool runs |
+| **[Method 1 — play both regions](#method-1--play-both-regions)** (recommended) | one value (`1`) plays the tested locked A and B discs; start with a disc the player can play (A+B or its own region) | stays in the player |
+| **[Method 2 — region switcher](#method-2--region-switcher-no-stick-while-watching)** | sets the player to one region (`1`, `2` or `4`) at a time | only while the tool runs |
 
 Both start by [downloading the repository](#common-setup); building `BDJ.jar` is only needed for Method 2.
 
@@ -89,17 +89,17 @@ method, checking every copied file against the repository by SHA-256:
 python3 make-usb.py
 ```
 
-- **Method 2 (recommended, the default):** press Return; it asks for the
-  Blu-ray region and the DVD region (or `skip`) and copies `usb-files/BDJ.jar`
-  — build it first (common step 2), or pass `--jar /path/to/BDJ.jar`.
-- **Method 1:** choose `1`; it asks for the USB path and the
-  region value (default `1`). Read [its limits](#method-1--play-both-regions)
-  first.
+- **Method 1 (recommended, the default):** press Return; it asks for the USB
+  path and the region value (default `1`). Read
+  [its rule](#method-1--play-both-regions) first.
+- **Method 2:** choose `2`; it asks for the Blu-ray region and the DVD region
+  (or `skip`) and copies `usb-files/BDJ.jar` — build it first (common step 2),
+  or pass `--jar /path/to/BDJ.jar`.
 
 It never deletes anything, and it only overwrites existing files after you
-confirm — `--yes` skips that prompt for scripted use, and picks Method 2
+confirm — `--yes` skips that prompt for scripted use, and picks Method 1
 unless you pass `--method`:
-`python3 make-usb.py --method 1 --usb /Volumes/USB --yes` (Method 1) or
+`python3 make-usb.py --usb /Volumes/USB --yes` (Method 1) or
 `--method 2 --bd 2 --dvd skip --yes` (Method 2).
 
 This needs Python 3, which Method 1 does not otherwise require — the manual
@@ -230,8 +230,8 @@ missing or holds no number, the helper uses `1`.
 4. Eject the USB from the computer and put it back in the player.
 5. Insert a disc whose Java has not just started — a different disc, or any
    disc after a power cycle. The helper reads the value about 10 seconds
-   after the disc's Java starts. If the disc's menu is still on screen when
-   that happens, it may stop responding — use Method 2 for that disc.
+   after the disc's Java starts, then restores the player's interface, so the
+   disc's menu keeps working.
 
 The value is read when a disc's Java starts. Reinserting the **same** disc can
 resume the previous playback instead; the helper then does not run again and
@@ -469,7 +469,9 @@ With the per-disc helper (advanced) a blank screen right after a disc starts mea
 
 ### The disc menu appears but the remote does nothing
 
-With the per-disc helper (Method 1) this was measured on Jigsaw, 29 Oct 2026: the top menu showed and Home worked, but Left, Right and Play did nothing. The helper still set the region correctly, so this is a limit of the helper, not the disc. Play that disc with [Method 2](#method-2--region-switcher-no-stick-while-watching) — set its own region, no stick while watching. See [the limit](#limits) in Method 1.
+This was the per-disc helper's bug until 30 Oct 2026: it replaced the player's interface object and left it replaced, so the disc's Java lost its key handling (Jigsaw: top menu shown, Home worked, no other key did anything). The helper now puts the player's own interface back right after setting the region — see [the fix](#method-1--play-both-regions) in Method 1.
+
+If it still happens, the helper did not load: check `patch_result.txt` on the stick for a `restored=` line. If it is missing, the run did not load at all — power-cycle with the stick in, wait for the home screen plus about 15 seconds, then insert the disc again.
 
 ### How do I check the disc has BD-J?
 
@@ -484,7 +486,7 @@ No Blu-ray drive? If you have a disc image or backup folder, MakeMKV or any Blu-
 
 It depends which method you use:
 
-- **Method 2 (region switcher, recommended):** remove the stick after the run.
+- **Method 2 (region switcher):** remove the stick after the run.
   The script only has to run once per region change, and `BDJ_DEBUG` changes
   how the player loads disc software.
 - **Method 1:** yes, the stick must **stay in the player**, because the

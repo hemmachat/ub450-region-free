@@ -4,10 +4,10 @@
 Asks which method you want and the few values that matter, writes the stick
 and verifies every file against the repository by SHA-256.
 
-  Method 2 (recommended): region switcher. One region at a time, USB only
-  while it runs.
-  Method 1 (both regions): play both regions. USB stays in the player; the
-  first disc after a boot must be one the player starts anyway.
+  Method 1 (recommended): play both regions. USB stays in the player; the
+  first disc after a boot must be one the player starts anyway and reaches
+  its menu.
+  Method 2: region switcher. One region at a time, USB only while it runs.
 
 Run:  python3 make-usb.py
 Flags (for scripted use): --method 1|2 --usb DIR [--psr20 N] [--bd 1|2|4]
@@ -100,7 +100,7 @@ def main():
     ap.add_argument("--yes", action="store_true", help="do not ask for confirmation")
     a = ap.parse_args()
 
-    method = a.method or ("2" if a.yes else ask("Which method? 1 = both regions, 2 = region switcher (recommended)", "2"))
+    method = a.method or ("1" if a.yes else ask("Which method? 1 = both regions (recommended), 2 = region switcher", "1"))
     if method not in ("1", "2"):
         return fail("method must be 1 or 2")
     usb = a.usb or ask("USB stick path (the mounted volume)")

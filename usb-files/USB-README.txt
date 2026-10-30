@@ -7,12 +7,14 @@ with its own region. Discs differ in how strictly they check.
 
 TWO WAYS TO USE THIS STICK
 
+  Per-disc regions (recommended, both A and B): the stick stays in the player
+  and every disc plays in one session. Works since 30 Oct 2026 - see
+  PER-DISC REGION below. One rule: the first disc after a power-on must be
+  one the player starts anyway and that reaches its menu.
+
   Region switch (simple): set bd_region.txt to 1, 2 or 4, run this stick
   once, then unplug the player at the wall and remove the stick. The player
   keeps that region and needs no stick while watching.
-
-  Per-disc regions (both A and B, stick stays in): see below. Works since
-  30 Oct 2026; the stick stays in the player while you watch.
 
 PER-DISC REGION (both regions, stick stays in)
 ----------------------------------------------

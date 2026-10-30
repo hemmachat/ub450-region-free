@@ -20,7 +20,7 @@ config and USB trees.
 - `test_tmo.sh` — extracts the `tmo` helper from `run.sh` and checks piped
   stdin, kill-on-timeout and exit-code passthrough (4 assertions).
 - `test_setup_usb.py` — `make-usb.py`: both stick layouts, the helper jar
-  copied byte-for-byte, custom and refused values, the default method (Method 2
+  copied byte-for-byte, custom and refused values, the default method (Method 1
   unless `--method` is given), missing target and a clean no-input message
   (7 checks).
 - `testing/inprocess-experiment/tests/test_regionpatch_value.py` — the
