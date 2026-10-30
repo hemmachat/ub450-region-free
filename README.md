@@ -12,8 +12,9 @@ reversible.
 > keep working. Verified on the player: Chernobyl (A+B), Jigsaw (locked A)
 > and The Hurt Locker (locked B) all played with working menus in one
 > session. One rule: **the first disc after a boot must be one the player
-> starts anyway** (A+B or its own region) — a fresh locked disc is refused
-> before the helper can run. The byte `3` it relies on does not open the
+> starts anyway** — an A+B disc, or any disc from the player's own region
+> (locked is fine). A disc from the other region is refused by its own check
+> before the helper runs. The byte `3` it relies on does not open the
 > player's gate when the stick is out. Discs differ in how strictly they
 > check; `7` is not "all regions". True all-region firmware is not provided
 > by this project.
@@ -114,8 +115,10 @@ copy in its setup section does the same thing.
 
 One value, `1`, plays the tested locked region A disc **and** the tested locked
 region B disc in the same session. The USB stays in the player while you
-watch. **Insert a disc the player starts anyway first** (A+B or its own
-region): it sets the register, and every disc after it plays in that session.
+watch. **Insert a disc the player starts anyway first** — A+B, or any disc
+of its own region (locked is fine). It must actually reach its menu: the
+helper loads with the disc's Java. It sets the register, and every disc after
+it plays in that session.
 
 ### Set up the USB (once)
 
@@ -165,14 +168,15 @@ when the helper is loaded (measured 29 Oct 2026).
 ### Play
 
 Keep the stick in the player. **The first disc after a power-on must be one
-the player starts anyway** — an A+B disc (Chernobyl) or one from the player's
-own region. It sets the register about 10 seconds after its Java starts, and
-every disc after it in that session plays.
+the player starts anyway** — an A+B disc (Chernobyl), or any disc of the
+player's own region (locked is fine) — and that reaches its menu. It sets the
+register about 10 seconds after its Java starts, and every disc after it in
+that session plays.
 
 1. Unplug the player at the wall, insert the stick, power on. Press **Return**
    if the USB media menu appears.
 2. **Wait for the home screen, then about 15 more seconds.**
-3. Insert the playable disc (A+B or the player's own region) and let it load.
+3. Insert a disc the player starts anyway — A+B, or any disc of its own region, locked is fine — and let it load.
 4. Without powering off, eject it and insert the disc you want to watch — of
    either region. Disc menus keep working.
 
@@ -244,8 +248,9 @@ For the tested discs, `1` needs no change at all.
 - A locked B disc that checks strictly needs `2`, which then locks out region
   A discs.
 - The player must have the byte at `3` (the first run above).
-- The **first disc after a boot** must be one the player starts anyway (A+B
-  or its own region). A freshly inserted locked disc checks the region in its
+- The **first disc after a boot** must be one the player starts anyway — A+B,
+  or any disc of its own region (locked is fine) — and it must reach its menu.
+  A disc of the other region checks the region in its
   first seconds, before the helper runs; after the register is set, every disc
   in that session plays.
 
@@ -550,7 +555,7 @@ DVD uses one region number (0–6); `0` is the region-free value. This is **not 
 **Yes, with [Method 1](#method-1--play-both-regions), since 30 Oct 2026.**
 With the helper set to `1`, the tested locked A disc, the tested locked B disc
 and an A+B disc all played with working menus in one session. The first disc
-after a boot must be one the player starts anyway (A+B or its own region);
+after a boot must be one the player starts anyway (A+B, or any disc of its own region — locked is fine);
 every disc after it plays. The helper sets the region register and then puts
 the player's own interface back — leaving that replacement in place is what
 used to leave disc menus dead (Jigsaw, 29 Oct 2026). Method 2 (set the
@@ -572,7 +577,7 @@ The player has a BD-Java debug mode that loads boot classes from a USB drive. Th
 1. **Config file write** — writes both DVD and BD regions to the config file. This works on the tested Australian player; on some UK, US and EU units the value does not survive a reboot (under investigation). DVD also needs the EEPROM write below to survive a reboot.
 2. **EEPROM direct write** — writes the DVD region to the hardware EEPROM at offset 0x200, where the firmware reads it at every boot. Off unless a `DVD_EEPROM` file is on the USB; see [What about DVDs?](#what-about-dvds).
 
-The Blu-ray region is set to the value in `bd_region.txt` (1 = A by default), not to "all regions": the player stores any byte, but for values it does not recognise as a region it uses its own region instead. The per-disc helper described above exploits that. With the byte at `3` **and the helper loaded**, the player starts the disc's Java, and the disc's own check compares its region with the player's region register (PSR 20), which the helper sets to `1` — but that check runs in the disc's first seconds, before the helper's patch about 10 seconds after the disc starts. A freshly inserted locked disc is therefore refused (measured 30 Oct 2026 with PSR 20 patched at 10 s and at 90 s); a disc the player starts anyway (A+B or its own region) sets the register first, and every disc after it in that session plays. After setting the register the helper puts the player's own interface back, which is what keeps disc menus working. With the stick out, a locked disc is refused before its Java starts (29 Oct 2026). See `docs/region-bitmask-finding.md`. The DVD region defaults to 1 (US) unless overridden by a `dvd_region.txt` file on the USB. The original values are backed up to the USB first. No firmware is modified. No network connection is needed.
+The Blu-ray region is set to the value in `bd_region.txt` (1 = A by default), not to "all regions": the player stores any byte, but for values it does not recognise as a region it uses its own region instead. The per-disc helper described above exploits that. With the byte at `3` **and the helper loaded**, the player starts the disc's Java, and the disc's own check compares its region with the player's region register (PSR 20), which the helper sets to `1` — but that check runs in the disc's first seconds, before the helper's patch about 10 seconds after the disc starts. A freshly inserted locked disc is therefore refused (measured 30 Oct 2026 with PSR 20 patched at 10 s and at 90 s); a disc the player starts anyway (A+B, or any disc of its own region — locked is fine) sets the register first, and every disc after it in that session plays. After setting the register the helper puts the player's own interface back, which is what keeps disc menus working. With the stick out, a locked disc is refused before its Java starts (29 Oct 2026). See `docs/region-bitmask-finding.md`. The DVD region defaults to 1 (US) unless overridden by a `dvd_region.txt` file on the USB. The original values are backed up to the USB first. No firmware is modified. No network connection is needed.
 
 ## Building from source
 

@@ -161,8 +161,9 @@ def main():
         print("     with BD-J and wait ~30 s (first run only).")
         print("  3. Unplug the player, power on once more.")
         print("  Keep the stick in the player while watching.")
-        print("  Insert a disc the player starts anyway (A+B, e.g. Chernobyl) first:")
-        print("  it sets the region register, then every disc in that session plays.")
+        print("  Insert a disc the player starts anyway (A+B, e.g. Chernobyl, or one")
+        print("  of the player's own region) first: it sets the region register,")
+        print("  then every disc in that session plays.")
         print("  Disc menus keep working; the helper restores the player interface.")
     else:
         print("  1. Unplug the player, insert the stick, power on.")

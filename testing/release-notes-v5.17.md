@@ -29,7 +29,8 @@ Why it broke, and how it was proven
 Timing limit (unchanged, now documented)
 - A freshly inserted disc checks the region in its first seconds, before the
   helper runs (~10 s after the disc's Java starts). The first disc after a boot
-  must therefore be one the player starts anyway (A+B or its own region);
+  must therefore be one the player starts anyway (A+B, or any disc of its own
+  region — locked is fine);
   every disc after it plays in that session. A fresh locked disc at byte `3`
   shows the region message even with a 10 s or 90 s patch.
 

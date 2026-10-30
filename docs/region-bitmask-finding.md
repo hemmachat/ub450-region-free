@@ -118,8 +118,8 @@ same three discs:
 - **Region timing.** A freshly inserted disc checks the region in its first
   seconds, before the helper runs (~10 s after the disc's Java starts). A
   fresh Jigsaw start at byte `3` therefore shows the region message even with
-  a 10 s or 90 s patch; a disc the player starts anyway (A+B / own region) is
-  needed first, and later discs in the session see the register already set.
+  a 10 s or 90 s patch; a disc the player starts anyway (A+B, or any disc of its own region —
+  locked is fine) is needed first, and later discs in the session see the register already set.
   The helper still reads PSR 20 first and skips everything when it matches
   `psr20_value.txt` (`already set, patch skipped`).
 - The PSR write lands in the real array: the `PlayerRegisters` initialiser at

@@ -22,8 +22,8 @@ the first line of psr20_value.txt. It then puts the player's own interface
 back, so disc menus keep working.
 
 THE ONE RULE: the first disc after a power-on must be one the player starts
-anyway — a region-free / A+B disc, or one from the player's own region
-(Chernobyl is A+B and is what we use). A disc checks the region in its first
+anyway — a region-free / A+B disc, or any disc from the player's own region
+(locked discs are fine — Chernobyl, A+B, is what we use). A disc checks the region in its first
 seconds, before the helper runs. After that first disc, every disc of either
 region plays in that session, with working menus.
 
@@ -45,8 +45,9 @@ Steps:
 4. Eject the USB from the computer, put it back in the player.
 5. Unplug the player at the wall, then power on with the stick in.
 6. Wait for the home screen, then wait about 15 seconds more.
-7. Insert a disc the player starts anyway (A+B, e.g. Chernobyl). It sets the
-   region register about 10 seconds after its Java starts.
+7. Insert a disc the player starts anyway (A+B, or a disc of the player's own
+   region — locked is fine). It sets the region register about 10 seconds
+   after its Java starts.
 8. Without powering off, eject it and insert the disc you want to watch. Any
    region works in that session, and disc menus keep working.
 Keep the USB in the player while watching.
