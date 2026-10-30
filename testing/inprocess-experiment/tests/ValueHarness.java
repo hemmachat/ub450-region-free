@@ -4,6 +4,23 @@
 public class ValueHarness {
     public static void main(String[] a) throws Exception {
         Class c = Class.forName("com.mtk.utils.RegionPatch");
+        if ("already".equals(a[0])) {
+            java.lang.reflect.Method m = c.getDeclaredMethod("alreadySet",
+                    new Class[] {int.class, int.class});
+            m.setAccessible(true);
+            Object r = m.invoke(null, new Object[] {Integer.valueOf(a[1]), Integer.valueOf(a[2])});
+            System.out.println(((Boolean) r).booleanValue() ? 1 : 0);
+            return;
+        }
+        if ("inregion".equals(a[0])) {
+            java.lang.reflect.Method m = c.getDeclaredMethod("inRegion",
+                    new Class[] {String.class, long.class, char.class});
+            m.setAccessible(true);
+            Object r = m.invoke(null, new Object[] {a[1],
+                    Long.valueOf(Long.parseLong(a[2], 16)), Character.valueOf(a[3].charAt(0))});
+            System.out.println(((Boolean) r).booleanValue() ? 1 : 0);
+            return;
+        }
         if ("default".equals(a[0])) {
             java.lang.reflect.Method m = c.getDeclaredMethod("valueOrDefault",
                     new Class[] {int.class});

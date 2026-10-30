@@ -21,8 +21,16 @@ config and USB trees.
   stdin, kill-on-timeout and exit-code passthrough (4 assertions).
 - `test_setup_usb.py` — `make-usb.py`: both stick layouts, the helper jar
   copied byte-for-byte, custom and refused values, the default method (Method 2
-  unless `--method` is given, since Method 1 is experimental), missing target
-  and a clean no-input message (7 checks).
+  unless `--method` is given), missing target and a clean no-input message
+  (7 checks).
+- `testing/inprocess-experiment/tests/test_regionpatch_value.py` — the
+  per-disc helper: the value file, the skip when the register already matches,
+  the map-permission parser, the interface restore and the masked scan target,
+  and that the shipped jar equals a fresh build (12 checks).
+- `testing/inprocess-experiment/experiments/restore/run_emu.sh` — the ARM
+  stubs from `stubs.s`, run under `qemu-system-arm` against a synthetic memory
+  image (12 checks: scan, skip, read-word, setgpr, bounds). Needs qemu; it is
+  not part of the default loop.
 - `test_build_py.py`, `test_build_inprocess.py`, `test_downgrade_class.py`,
   `test_diag_sh.py` — the build scripts, the probe-call injection, the class
   downgrade and `diag.sh` (5 + 3 + 2 + 2 checks).

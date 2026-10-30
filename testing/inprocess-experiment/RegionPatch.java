@@ -6,8 +6,11 @@ import java.io.FileOutputStream;
 import com.philips.bluray.media.util.NativeCopier;
 import com.philips.bluray.system.RegisterAccess;
 
-// Put ARM register stubs in an executable allocation and redirect the
-// JbiMiscProxy target (fixed address 0x010fec00) to them, then set PSR 20 to the first number in /mnt/sda1/psr20_value.txt (default 1; experimental: can make a disc's menu stop taking the remote).
+// Retarget the player's JbiMiscProxy adapter (global 0x010fec00) at ARM
+// register stubs, set PSR 20 from /mnt/sda1/psr20_value.txt (default 1), then
+// put the player's own adapter back: leaving the stub object in place is what
+// froze disc menus (30 Oct 2026). Reads PSR 20 first and skips everything when
+// the register already matches, so a later disc start leaves the player alone.
 public class RegionPatch extends Thread {
     // Self-contained ARM stubs; each returns 0 on success, 1 on out-of-range.
     // setpsr: *g_psr[reg] = value        (g_psr = *(0x010fc27c))
@@ -17,8 +20,12 @@ public class RegionPatch extends Thread {
     private static final String S_GETPSR =
         "800051e30500002a18309fe5003093e5013193e7003082e50000a0e31eff2fe10100a0e31eff2fe17cc20f01";
     // setgpr: *(g_psr-0x4000)[reg] = value
+    // setgpr with two magic registers: 0xf00 runs the object scan, 0xf01
+    // reads the word at GPR[3010] into GPR[3011]. The scan target is stored
+    // XORed with the mask in the scratch block so the block itself cannot
+    // match, which lets the scan cover the heap the buffer lives in.
     private static final String S_SETGPR =
-        "010a51e30500002a18309fe5003093e5013943e2012183e70000a0e31eff2fe10100a0e31eff2fe17cc20f01";
+        "010a51e30a0000aa0f0c51e30a00000a01cf00e30c0051e13300000af0309fe5003093e5013943e2012183e70000a0e31eff2fe10100a0e31eff2fe1f0472de9d0409fe5005094e5046094e50c0094e5006026e008a094e5b4309fe5003093e5013943e20020a0e3107084e20080a0e3ffffffea050058e1170000aa889187e0041099e5009099e5010059e1100000aa000099e5060050e10100000a049089e2f8ffffea0a0059e10700009a0920a0e10c0099e5f0ce02e30c0083e7100099e5f4ce02e30c0083e7030000ea049089e2ecffffea018088e2e5ffffeaec0e02e3002083e70000a0e3f087bde820309fe5003093e5013943e208cf02e30c2093e7002092e50ccf02e30c2083e70000a0e31eff2fe17cc20f0111111111";
     // getgpr: *out = *(g_psr-0x4000)[reg]
     private static final String S_GETGPR =
         "010a51e30600002a1c309fe5003093e5013943e2013193e7003082e50000a0e31eff2fe10100a0e31eff2fe17cc20f01";
@@ -136,6 +143,13 @@ public class RegionPatch extends Thread {
         return 1;
     }
 
+    // The register only has to be set once per session; skipping the patch
+    // when it already holds the value keeps the player's own interface in
+    // place, which is what keeps a disc menu that is still up working.
+    private static boolean alreadySet(int now, int want) {
+        return now == want;
+    }
+
     private static int regionValue() {
         int v = -1;
         try {
@@ -150,6 +164,138 @@ public class RegionPatch extends Thread {
         return valueOrDefault(v);
     }
 
+    private static final int MAX_RANGES = 200;
+    private static final long SCAN_MASK = 0x5A5A5A5AL;
+
+    private static boolean inRegion(String maps, long v, char flag) {
+        int p = 0;
+        while (p < maps.length()) {
+            int e = maps.indexOf('\n', p);
+            if (e < 0) {
+                e = maps.length();
+            }
+            String line = maps.substring(p, e);
+            p = e + 1;
+            int dash = line.indexOf('-');
+            int sp = line.indexOf(' ');
+            if (dash > 0 && sp > dash && line.length() > sp + 4) {
+                if (line.substring(sp + 1, sp + 4).indexOf(flag) >= 0) {
+                    try {
+                        long s = Long.parseLong(line.substring(0, dash), 16);
+                        long en = Long.parseLong(line.substring(dash + 1, sp), 16);
+                        if (v >= s && v < en) {
+                            return true;
+                        }
+                    } catch (Throwable t) {
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private static long readWord(long addr) {
+        try {
+            RegisterAccess ra = RegisterAccess.getInstance();
+            ra.setGPR(3010, (int) addr);
+            ra.setGPR(0xF01, 0);
+            return ra.getGPR(3011) & 0xFFFFFFFFL;
+        } catch (Throwable t) {
+            return 0;
+        }
+    }
+
+    // Find the player's adapter object: scan every writable mapping (heap
+    // included) for its vtable pointer and accept only a match whose +0x10
+    // backend is a real writable pointer whose own first word is a code
+    // pointer. +0xc is logged but not required.
+    private static long findAdapter(String maps, long buf, StringBuffer log) {
+        long[] starts = new long[MAX_RANGES];
+        long[] ends = new long[MAX_RANGES];
+        int n = 0;
+        int p = 0;
+        while (p < maps.length() && n < MAX_RANGES) {
+            int e = maps.indexOf('\n', p);
+            if (e < 0) {
+                e = maps.length();
+            }
+            String line = maps.substring(p, e);
+            p = e + 1;
+            int dash = line.indexOf('-');
+            int sp = line.indexOf(' ');
+            if (dash > 0 && sp > dash && line.length() > sp + 4) {
+                if (line.substring(sp + 1, sp + 4).indexOf('w') >= 0) {
+                    try {
+                        long s = Long.parseLong(line.substring(0, dash), 16);
+                        long en = Long.parseLong(line.substring(dash + 1, sp), 16);
+                        if (en > s
+                                && line.indexOf("/dev/bdkmem") < 0
+                                && line.indexOf("/dev/osai") < 0
+                                && line.indexOf("[stack") < 0) {
+                            starts[n] = s;
+                            ends[n] = en;
+                            n++;
+                        }
+                    } catch (Throwable t) {
+                    }
+                }
+            }
+        }
+        log.append("scan ranges=").append(n).append("\n");
+        if (n == 0) {
+            return 0;
+        }
+        byte[] sc = new byte[0x10 + MAX_RANGES * 8];
+        long skip = 0;
+        long found = 0;
+        int passing = 0;
+        for (int attempt = 0; attempt < 24; attempt++) {
+            put32(sc, 0, n);
+            put32(sc, 4, 0xC92B20L ^ SCAN_MASK);
+            put32(sc, 8, skip);
+            put32(sc, 0xC, SCAN_MASK);
+            for (int i = 0; i < n; i++) {
+                put32(sc, 0x10 + i * 8, starts[i]);
+                put32(sc, 0x10 + i * 8 + 4, ends[i]);
+            }
+            NativeCopier.copyToNative(sc, 0, 0x10 + n * 8, buf + 0x800);
+            long obj = 0;
+            long m1 = 0;
+            long m2 = 0;
+            try {
+                RegisterAccess ra = RegisterAccess.getInstance();
+                ra.setGPR(0xF00, 0);
+                obj = ra.getGPR(3003) & 0xFFFFFFFFL;
+                m1 = ra.getGPR(3004) & 0xFFFFFFFFL;
+                m2 = ra.getGPR(3005) & 0xFFFFFFFFL;
+            } catch (Throwable t) {
+                log.append("scan err ").append(t.toString()).append("\n");
+                break;
+            }
+            if (obj == 0) {
+                break;
+            }
+            boolean m2ok = (obj & 3L) == 0 && m2 != 0 && (m2 & 3L) == 0 && inRegion(maps, m2, 'w');
+            long vptr = 0;
+            if (m2ok) {
+                vptr = readWord(m2);
+            }
+            boolean ok = m2ok && vptr != 0 && (vptr & 1L) == 0 && inRegion(maps, vptr, 'x');
+            log.append("cand=").append(Long.toString(obj, 16))
+                    .append(" m0c=").append(Long.toString(m1, 16))
+                    .append(" m10=").append(Long.toString(m2, 16))
+                    .append(" vt=").append(Long.toString(vptr, 16))
+                    .append(ok ? " ok" : " reject").append("\n");
+            if (ok) {
+                passing++;
+                found = obj;
+            }
+            skip = obj + 4;
+        }
+        log.append("passing=").append(passing).append("\n");
+        return passing == 1 ? found : 0;
+    }
+
     public void run() {
         try {
             Thread.sleep(10000);
@@ -157,74 +303,97 @@ public class RegionPatch extends Thread {
         }
         StringBuffer log = new StringBuffer();
         try {
-            long buf = NativeCopier.allocate(0, 4096);
-            if (buf == 0) {
-                buf = NativeCopier.allocate(1, 4096);
+            int want = regionValue();
+            int now = -1;
+            // Read through the player's own interface, before it is replaced.
+            try {
+                now = RegisterAccess.getPSR(20);
+            } catch (Throwable t) {
+                log.append("getPSR0 err ").append(t.toString()).append("\n");
             }
-            String maps = rd("/proc/self/maps", 400000);
-            w("/mnt/sda1/patch_maps.txt", maps);
-            log.append("buf=").append(Long.toString(buf, 16)).append("\n");
-            if (buf == 0 || (buf & 3L) != 0) {
-                log.append("bad alloc\n");
-            } else if (!isExec(maps, buf)) {
-                log.append("buf not executable\n");
+            log.append("get20 before=").append(now).append("\n");
+            log.append("value file=").append(want).append("\n");
+            if (alreadySet(now, want)) {
+                // The register only has to be set once per session. Replacing
+                // the player's interface again would freeze a disc menu that is
+                // still up (Jigsaw, 29 Oct 2026), so leave it alone.
+                log.append("already set, patch skipped\n");
+                log.append("get20 after=").append(now).append("\n");
+            } else if (now != 1 && now != 2 && now != 4) {
+                log.append("stub value not sane, set skipped\n");
             } else {
-                byte[] b = new byte[4096];
-                int noop = 0x90;
-                int setpsr = 0xC0;
-                int getpsr = 0xF0;
-                int setgpr = 0x120;
-                int getgpr = 0x150;
-                put32(b, 0, buf + 0x10);
-                for (int i = 0; i < 32; i++) {
-                    put32(b, 0x10 + i * 4, buf + noop);
+                long buf = NativeCopier.allocate(0, 4096);
+                if (buf == 0) {
+                    buf = NativeCopier.allocate(1, 4096);
                 }
-                put32(b, 0x10 + 2 * 4, buf + getgpr);
-                put32(b, 0x10 + 3 * 4, buf + setgpr);
-                put32(b, 0x10 + 4 * 4, buf + getpsr);
-                put32(b, 0x10 + 5 * 4, buf + setpsr);
-                copy(b, noop, bytes(S_NOOP));
-                copy(b, setpsr, bytes(S_SETPSR));
-                copy(b, getpsr, bytes(S_GETPSR));
-                copy(b, setgpr, bytes(S_SETGPR));
-                copy(b, getgpr, bytes(S_GETGPR));
-                NativeCopier.copyToNative(b, 0, 4096, buf);
-                // ARM I/D caches are not coherent: thrash the D-cache so the
-                // stub lines are evicted to L2 before the first fetch.
-                byte[] thrash = new byte[2097152];
-                for (int i = 0; i < thrash.length; i++) {
-                    thrash[i] = (byte) i;
-                }
-                byte[] p = new byte[4];
-                put32(p, 0, buf);
-                NativeCopier.copyToNative(p, 0, 4, 0x010fec00L);
-                log.append("target written\n");
-
-                int v1 = -1;
-                try {
-                    v1 = RegisterAccess.getPSR(20);
-                } catch (Throwable t) {
-                    log.append("getPSR1 err ").append(t.toString()).append("\n");
-                }
-                log.append("get20 before=").append(v1).append("\n");
-                int want = regionValue();
-                log.append("value file=").append(want).append("\n");
-                if (v1 != 1 && v1 != 2 && v1 != 4) {
-                    log.append("stub value not sane, set skipped\n");
+                String maps = rd("/proc/self/maps", 400000);
+                w("/mnt/sda1/patch_maps.txt", maps);
+                log.append("buf=").append(Long.toString(buf, 16)).append("\n");
+                if (buf == 0 || (buf & 3L) != 0) {
+                    log.append("bad alloc\n");
+                } else if (!isExec(maps, buf)) {
+                    log.append("buf not executable\n");
                 } else {
+                    byte[] b = new byte[4096];
+                    int noop = 0x90;
+                    int setpsr = 0xC0;
+                    int getpsr = 0xF0;
+                    int setgpr = 0x200;
+                    int getgpr = 0x150;
+                    put32(b, 0, buf + 0x10);
+                    for (int i = 0; i < 32; i++) {
+                        put32(b, 0x10 + i * 4, buf + noop);
+                    }
+                    put32(b, 0x10 + 2 * 4, buf + getgpr);
+                    put32(b, 0x10 + 3 * 4, buf + setgpr);
+                    put32(b, 0x10 + 4 * 4, buf + getpsr);
+                    put32(b, 0x10 + 5 * 4, buf + setpsr);
+                    copy(b, noop, bytes(S_NOOP));
+                    copy(b, setpsr, bytes(S_SETPSR));
+                    copy(b, getpsr, bytes(S_GETPSR));
+                    copy(b, setgpr, bytes(S_SETGPR));
+                    copy(b, getgpr, bytes(S_GETGPR));
+                    put32(b, setgpr + 0x118, buf + 0x800);
+                    NativeCopier.copyToNative(b, 0, 4096, buf);
+                    // ARM I/D caches are not coherent: thrash the D-cache so the
+                    // stub lines are evicted to L2 before the first fetch.
+                    byte[] thrash = new byte[2097152];
+                    for (int i = 0; i < thrash.length; i++) {
+                        thrash[i] = (byte) i;
+                    }
+                    byte[] p = new byte[4];
+                    put32(p, 0, buf);
+                    NativeCopier.copyToNative(p, 0, 4, 0x010fec00L);
+                    log.append("target written\n");
+
                     try {
                         RegisterAccess.setPSR(20, want);
                     } catch (Throwable t) {
                         log.append("setPSR err ").append(t.toString()).append("\n");
                     }
+                    int v2 = -1;
+                    try {
+                        v2 = RegisterAccess.getPSR(20);
+                    } catch (Throwable t) {
+                        log.append("getPSR2 err ").append(t.toString()).append("\n");
+                    }
+                    log.append("get20 after=").append(v2).append("\n");
+                    long obj = findAdapter(maps, buf, log);
+                    log.append("obj=").append(Long.toString(obj, 16)).append("\n");
+                    w("/mnt/sda1/patch_result.txt", log.toString());
+                    if (obj != 0) {
+                        put32(p, 0, obj);
+                        NativeCopier.copyToNative(p, 0, 4, 0x010fec00L);
+                        log.append("restored=").append(Long.toString(obj, 16)).append("\n");
+                        try {
+                            log.append("get20 real=").append(RegisterAccess.getPSR(20)).append("\n");
+                        } catch (Throwable t) {
+                            log.append("getPSR3 err ").append(t.toString()).append("\n");
+                        }
+                    } else {
+                        log.append("no single candidate, interface left replaced\n");
+                    }
                 }
-                int v2 = -1;
-                try {
-                    v2 = RegisterAccess.getPSR(20);
-                } catch (Throwable t) {
-                    log.append("getPSR2 err ").append(t.toString()).append("\n");
-                }
-                log.append("get20 after=").append(v2).append("\n");
             }
         } catch (Throwable t) {
             log.append("FATAL ").append(t.toString()).append("\n");

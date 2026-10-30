@@ -86,27 +86,45 @@ What the player does with each value, from playback tests on the AU UB450
   refused `7`; The Hurt Locker accepted `7`. One value cannot satisfy every
   disc, which is why true A+B needs the register set per disc.
 
-## Register set by the helper (29 Oct 2026, experimental)
+## Register set by the helper (30 Oct 2026)
 
-**Status: experimental.** The helper sets the register correctly, but it can
-make a disc's menu stop taking the remote (see the bullet below), and the byte
-`3` it depends on does not open the player's gate when the stick is out. The
-supported route is the region switch (Method 2): set byte 237 to `1`, `2` or
-`4` and play without the stick.
+**Status: works.** The helper sets the register and then puts the player's own
+misc interface back, so disc menus keep working. Verified on the player on
+30 Oct 2026: Chernobyl (A+B), Jigsaw (locked A) and The Hurt Locker (locked B)
+all played with working menus in one session. The byte `3` still does not open
+the player's gate when the stick is out, and the first disc after a boot must
+be one the player starts anyway (see the timing note below).
 
 With the config byte at `3` and the helper setting PSR 20, measured on the
 same three discs:
 
 - Jigsaw (locked A) at `1`: plays. `patch_result.txt`: `get20 before=2`,
   `value file=1`, `get20 after=1`.
-- **The disc menu can stop taking the remote** (measured 29 Oct 2026, same
-  Jigsaw disc, same stick): the top menu appeared, Home worked, but Left,
-  Right and Play did nothing — with `patch_result.txt` again showing
-  `get20 before=2` / `get20 after=1`, so the region value was applied. Remove
-  the stick and set the disc's own region (Method 2) to play such a disc.
-  The helper replaces the player's misc interface with its own; what that
-  breaks and why keys stop is not yet known, and the same disc had played
-  earlier that day with the stick in.
+- **The menu freeze and its fix (29-30 Oct 2026).** On 29 Oct a disc's top
+  menu appeared, Home worked, but Left, Right and Play did nothing, with
+  `patch_result.txt` showing `get20 before=2` / `get20 after=1`. On 30 Oct an
+  install-only build settled the cause: the same freeze happened with the
+  interface object installed and the register **never written**. The helper
+  replaces the player's `JbiMiscAdapter` object at `0x010fec00`, and that
+  object holds the player's data; leaving the replacement in place leaves the
+  disc's input handling dead. The fix is to put the player's own object back:
+  after setting PSR 20 the helper scans writable memory (heap included; the
+  scan target is stored XORed so the helper's own scratch block cannot match
+  itself) for a word equal to the adapter vtable `0xc92b20`, accepts a match
+  only when its `+0x10` backend is a mapped writable pointer whose own first
+  word is a code pointer, requires exactly one such match, and writes that
+  address back to `0x010fec00`. `patch_result.txt` logs `scan ranges=`,
+  `cand=… vt=c99a30 ok`, `passing=1`, `restored=…`, `get20 real=1`.
+- **Region timing.** A freshly inserted disc checks the region in its first
+  seconds, before the helper runs (~10 s after the disc's Java starts). A
+  fresh Jigsaw start at byte `3` therefore shows the region message even with
+  a 10 s or 90 s patch; a disc the player starts anyway (A+B / own region) is
+  needed first, and later discs in the session see the register already set.
+  The helper still reads PSR 20 first and skips everything when it matches
+  `psr20_value.txt` (`already set, patch skipped`).
+- The PSR write lands in the real array: the `PlayerRegisters` initialiser at
+  `0x1d6928` sets the global `0x010fc27c` to `object + 0x400c`
+  (`add.w r2, r4, #0x4000; adds r2, #0xc; str r2, [r3]`).
 - The Hurt Locker (locked B) at `1`: plays, in the same session, with no new
   helper write. It also plays at `7`.
 - Jigsaw at `7`: refused ("mismatch between disc and player region codes").

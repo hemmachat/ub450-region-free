@@ -7,22 +7,22 @@ reversible.
 > **Use Method 2.** It sets the player to one region at a time, and needs no
 > USB while watching.
 >
-> Method 1 (the per-disc helper) is **experimental**. It sets the region
-> correctly, but on 29 Oct 2026 a disc's menu stopped taking the remote once
-> the helper had run (Jigsaw: top menu shown, Home worked, no key did
-> anything). The byte `3` it relies on also does not open the player's gate
-> when the stick is out — a locked disc is refused before its Java starts.
-> Method 1's one measured success: with the value `1`, a locked region A disc
-> **and** the tested locked region B disc played in the same session (Jigsaw
-> and The Hurt Locker, 29 Oct 2026). Discs differ in how strictly they check
-> the region; `7` is not "all regions". No value is guaranteed to play every
-> disc. True all-region firmware is not provided by this project.
+> **Method 1 (the per-disc helper) works since 30 Oct 2026.** It sets the
+> region register, then puts the player's own interface back, so disc menus
+> keep working. Verified on the player: Chernobyl (A+B), Jigsaw (locked A)
+> and The Hurt Locker (locked B) all played with working menus in one
+> session. One rule: **the first disc after a boot must be one the player
+> starts anyway** (A+B or its own region) — a fresh locked disc is refused
+> before the helper can run. The byte `3` it relies on does not open the
+> player's gate when the stick is out. Discs differ in how strictly they
+> check; `7` is not "all regions". True all-region firmware is not provided
+> by this project.
 
 There are two ways to use it:
 
 | Method | What it does | USB while watching |
 |---|---|---|
-| **[Method 1 — play both regions](#method-1--play-both-regions-experimental)** (experimental) | one value (`1`) plays locked A and the tested locked B discs; disc menus can stop responding | stays in the player |
+| **[Method 1 — play both regions](#method-1--play-both-regions)** | one value (`1`) plays the tested locked A and B discs; put a playable disc in first | stays in the player |
 | **[Method 2 — region switcher](#method-2--region-switcher-no-stick-while-watching)** (recommended) | sets the player to one region (`1`, `2` or `4`) at a time | only while the tool runs |
 
 Both start by [downloading the repository](#common-setup); building `BDJ.jar` is only needed for Method 2.
@@ -92,8 +92,8 @@ python3 make-usb.py
 - **Method 2 (recommended, the default):** press Return; it asks for the
   Blu-ray region and the DVD region (or `skip`) and copies `usb-files/BDJ.jar`
   — build it first (common step 2), or pass `--jar /path/to/BDJ.jar`.
-- **Method 1 (experimental):** choose `1`; it asks for the USB path and the
-  region value (default `1`). Read [its limits](#method-1--play-both-regions-experimental)
+- **Method 1:** choose `1`; it asks for the USB path and the
+  region value (default `1`). Read [its limits](#method-1--play-both-regions)
   first.
 
 It never deletes anything, and it only overwrites existing files after you
@@ -105,17 +105,17 @@ unless you pass `--method`:
 This needs Python 3, which Method 1 does not otherwise require — the manual
 copy in its setup section does the same thing.
 
-## Method 1 — play both regions (experimental)
+## Method 1 — play both regions
 
-> **Experimental — not the recommended method.** Steps are here for people
-> testing or improving it. On 29 Oct 2026 a disc's menu stopped taking the
-> remote after the helper ran (see "The disc menu stops taking the remote"
-> below). Use [Method 2](#method-2--region-switcher-no-stick-while-watching)
-> to watch a disc.
+> **Works since 30 Oct 2026.** The helper sets the region register and then
+> puts the player's own interface back, so disc menus keep working (see
+> "The menu freeze, fixed" below). Verified on the player: Chernobyl (A+B),
+> Jigsaw (locked A) and The Hurt Locker (locked B) all played in one session.
 
 One value, `1`, plays the tested locked region A disc **and** the tested locked
-region B disc in the same session. There is nothing to change between discs:
-put the stick in and play. The USB stays in the player while you watch.
+region B disc in the same session. The USB stays in the player while you
+watch. **Insert a disc the player starts anyway first** (A+B or its own
+region): it sets the register, and every disc after it plays in that session.
 
 ### Set up the USB (once)
 
@@ -164,21 +164,27 @@ when the helper is loaded (measured 29 Oct 2026).
 Keep the stick in the player and insert any disc. The helper applies the
 value about 10 seconds after the disc's Java starts.
 
-Tested on the Australian UB450 (29 Oct 2026): The Hurt Locker (locked B)
-plays, Chernobyl (A+B) plays, Jigsaw (locked A) plays — but the remote can
-stop working on the disc's menu about 10 seconds after it appears, see the
-limit below.
+Tested on the Australian UB450: Chernobyl (A+B), Jigsaw (locked A) and
+The Hurt Locker (locked B) all played in one session with working menus
+(30 Oct 2026).
 
-**The disc menu stops taking the remote (measured 29 Oct 2026, Jigsaw).** The
-top menu appeared, Home still worked, but Left, Right and Play did nothing.
-The helper had done its job — `patch_result.txt` on the stick read
-`get20 before=2`, `value file=1`, `get20 after=1` — so this comes from the
-helper, not from the disc. The same disc played earlier that day with the
-stick in, so the break may depend on pressing keys after the value is applied
-(about 10 seconds after the disc's Java starts); that timing is not confirmed.
-If a menu takes no input, use
-[Method 2](#method-2--region-switcher-no-stick-while-watching) to set that
-disc's own region and play it without the stick.
+**The menu freeze, fixed (30 Oct 2026).** Until 30 Oct the helper replaced
+the player's interface object and left it replaced; that object has none of
+the player's data, so the disc's Java lost its key handling — the top menu
+appeared, Home worked, and no other key did anything. An experiment that
+installed the object and never wrote the register froze the menu the same
+way, which proved the cause was the replacement, not the region value. The
+helper now sets the register and then **puts the player's own object back**:
+it scans the writable memory for the object whose vtable is the player's misc
+interface, accepts it only when its backend member points at real code, and
+restores the pointer. The replacement now lasts milliseconds. `patch_result.txt`
+shows the whole chain: `get20 before=2`, `target written`, `get20 after=1`,
+`cand=… vt=c99a30 ok`, `passing=1`, `restored=…`, `get20 real=1`.
+
+**Region timing.** A newly inserted disc checks the region in its first
+seconds, before the helper runs (about 10 seconds after the disc's Java
+starts). That is why the first disc after a boot must be one the player starts
+anyway; after that the register stays `1` for the session.
 
 ### The value to use
 
@@ -226,13 +232,15 @@ For the tested discs, `1` needs no change at all.
 - A locked B disc that checks strictly needs `2`, which then locks out region
   A discs.
 - The player must have the byte at `3` (the first run above).
-- The disc's menu can stop taking the remote about 10 seconds after it
-  appears (measured on Jigsaw, 29 Oct 2026). Play a disc that needs its menu
-  with Method 2 instead.
+- The **first disc after a boot** must be one the player starts anyway (A+B
+  or its own region). A freshly inserted locked disc checks the region in its
+  first seconds, before the helper runs; after the register is set, every disc
+  in that session plays.
 
 The helper writes **`patch_result.txt`** on the stick each time a disc's Java starts,
 with the region it read before and after the change (`get20 before=`,
-`value file=`, `get20 after=`). If a disc is refused or the screen stays blank,
+`value file=`, `get20 after=`), the interface scan (`cand=`, `passing=`) and
+the restore (`restored=`, `get20 real=`). If a disc is refused or the screen stays blank,
 that file plus your `psr20_value.txt` is what to send (see
 [Something not working?](#something-not-working-send-us-these-files)).
 
@@ -347,7 +355,7 @@ Tested on a DP-UB450GN (Australia, firmware V127), 26-29 Oct 2026: Jigsaw
 (locked A) plays with `1`; The Hurt Locker (locked B) plays with `2` (and with
 `7`, which the player treats as its own region); Chernobyl (A+B) plays with any
 value. Playing both regions without switching is the idea behind the
-[experimental Method 1](#method-1--play-both-regions-experimental).
+[Method 1](#method-1--play-both-regions).
 
 ## How to undo it
 
@@ -381,7 +389,7 @@ Then add the one that matches what happened:
 | The values look wrong from the start | `.config_backup.txt`, `.bd_backup.bin`, `.dvd_backup.bin`, `.bd_offset.txt`, `.dvd_offset.txt` — saved on the **first** run only, so they hold the values from before the tool wrote anything. |
 | A DVD region does not stick, or you used `DVD_EEPROM` | `.eeprom_dvd_backup.bin`, `.eeprom_device.txt` (if present) and the `diag_output/` folder. |
 | The per-disc helper refuses a disc | `patch_result.txt` (written on the stick each time a disc's Java starts), plus the current `bd_region.txt` and `psr20_value.txt`. |
-| The disc menu shows but the remote does nothing (per-disc helper) | `patch_result.txt`, `psr20_value.txt` and `bd_region.txt`. If it reads `get20 after=1`, the helper worked and the menu is the known limit — play that disc with Method 2. |
+| The disc menu shows but the remote does nothing (per-disc helper) | `patch_result.txt`, `psr20_value.txt` and `bd_region.txt`. The fixed helper logs `restored=` and `get20 real=`; if the file has no `restored=` line, the helper did not find the player's interface object — send the file. A first disc that is region-locked is refused before the helper runs: insert a playable disc first. |
 | Nothing above explains it | The `diag_output/` folder — see below. |
 
 **`diag_output/`** is a deeper read-only check. `run.sh` runs `diag.sh`
@@ -462,10 +470,10 @@ It depends which method you use:
 - **Method 2 (region switcher, recommended):** remove the stick after the run.
   The script only has to run once per region change, and `BDJ_DEBUG` changes
   how the player loads disc software.
-- **Method 1 (experimental):** yes, the stick must **stay in the player**,
-  because the helper runs when each disc starts. Leaving it in is also how a
-  disc's menu can stop taking the remote — see
-  [The disc menu appears but the remote does nothing](#the-disc-menu-appears-but-the-remote-does-nothing).
+- **Method 1:** yes, the stick must **stay in the player**, because the
+  helper runs when each disc starts. A disc's menu keeps working: the helper
+  restores the player's own interface right after setting the region (see
+  [Method 1](#method-1--play-both-regions)).
 
 If a disc ever shows a blank screen, remove the USB and power-cycle the player;
 with no stick the player behaves normally.
@@ -527,13 +535,14 @@ DVD uses one region number (0–6); `0` is the region-free value. This is **not 
 
 ### Can the player be made region-free (play A and B at the same time)?
 
-**Only as an experiment, and not reliably.** With the per-disc helper
-(Method 1, [experimental](#method-1--play-both-regions-experimental)) set to
-`1`, the locked A disc and the locked B disc tested played in the same
-session on 29 Oct 2026. Later the same day the same setup left that disc's
-menu dead: the top menu appeared, Home worked, no key did anything, and the
-region had been set correctly. Method 2 (set the player's own region) is the
-route that works. Method 1 is kept for further testing.
+**Yes, with [Method 1](#method-1--play-both-regions), since 30 Oct 2026.**
+With the helper set to `1`, the tested locked A disc, the tested locked B disc
+and an A+B disc all played with working menus in one session. The first disc
+after a boot must be one the player starts anyway (A+B or its own region);
+every disc after it plays. The helper sets the region register and then puts
+the player's own interface back — leaving that replacement in place is what
+used to leave disc menus dead (Jigsaw, 29 Oct 2026). Method 2 (set the
+player's own region, no stick) is still the simpler route for one region.
 
 That is not a universal guarantee either. Discs check the region differently:
 the locked A disc accepts only `1` (it refused `7`), the locked B disc is lax
@@ -596,9 +605,15 @@ Region codes: the player accepts `1` (A), `2` (B) and `4` (C) as single region c
 
 ## Changelog
 
+**v5.17 (30 Oct 2026)** — the per-disc helper restores the player's own interface; disc menus keep working.
+
+- **The menu freeze is fixed.** The helper used to replace the player's misc-interface object at `0x010fec00` and leave it there; that object holds none of the player's data, so the disc's Java lost its key handling (Jigsaw, 29 Oct 2026). An experiment that installed the object without writing the register froze the menu the same way, which proved the replacement was the cause, not the region value. The helper now sets PSR 20, scans writable memory for the player's real object (first word = the misc-interface vtable `0xc92b20`), accepts it only when its `+0x10` backend points at real code, and writes it back; the replacement lasts milliseconds. `patch_result.txt` shows `scan ranges=`, one `cand=` line per match, `passing=`, `restored=` and `get20 real=`. Verified on the player: Chernobyl (A+B), Jigsaw (locked A) and The Hurt Locker (locked B) all played with working menus in one session (30 Oct 2026).
+- **First disc after a boot must be playable** (A+B or the player's own region): a disc checks the region in its first seconds, before the helper runs (~10 s after the disc's Java starts). Later discs in the session see the register already set. It still reads PSR 20 first and skips everything when it already matches `psr20_value.txt`.
+- `usb-files/BDJ-region-helper.jar` rebuilt (1,305,084 bytes, SHA-256 `7d69c5d540800fd5093868840a952bafa21ed63dc6e3c4559278195a2fc0c09b`). `test_regionpatch_value.py` now has 12 checks (the map-permission parser, the restore path and the masked scan target); the ARM stubs are emulated under QEMU (12 checks, `testing/inprocess-experiment/experiments/restore/run_emu.sh`). During development the restore was gated by a `restore_enable.txt` file on the stick; the shipped helper restores always.
+
 **v5.16 (29 Oct 2026)** — per-disc helper demoted to experimental. Documentation and builder only; `run.sh` and the helper jar are byte-identical to v5.15, so nothing that runs on the player changed.
 
-- **Method 1 is now experimental; Method 2 is the recommended method.** The README intro, method table, Method 1 heading (anchor is now `#method-1--play-both-regions-experimental`), limits, FAQ, `usb-files/USB-README.txt` and `docs/region-bitmask-finding.md` say so and point to Method 2. `make-usb.py` labels Method 1 experimental, offers Method 2 as the default answer, and `--yes` without `--method` now writes a Method 2 stick; its next-steps text warns about the menu limit. Test: `tests/test_setup_usb.py` — "No --method picks the recommended method" (written failing first; the default built the Method 1 stick before the change).
+- **Method 1 is now experimental; Method 2 is the recommended method.** The README intro, method table, Method 1 heading (anchor is now `#method-1--play-both-regions`), limits, FAQ, `usb-files/USB-README.txt` and `docs/region-bitmask-finding.md` say so and point to Method 2. `make-usb.py` labels Method 1 experimental, offers Method 2 as the default answer, and `--yes` without `--method` now writes a Method 2 stick; its next-steps text warns about the menu limit. Test: `tests/test_setup_usb.py` — "No --method picks the recommended method" (written failing first; the default built the Method 1 stick before the change).
 - With the helper loaded and the region set correctly, Jigsaw's top menu appeared but Left, Right and Play did nothing (Home still worked). `patch_result.txt` showed `get20 before=2`, `value file=1`, `get20 after=1`, so the value was applied — this is the helper, not the disc. The same stick and value played the same disc earlier that day, so the break may depend on pressing keys after the value is applied (~10 s after the disc's Java starts); not confirmed. Method 1 (Play, Limits, FAQ) now says to use Method 2 for a disc that needs its menu; `docs/region-bitmask-finding.md` records the run.
 - Corrected an earlier claim: the byte `3` alone does not open the native gate. With the stick **out**, a Jigsaw start at `3` stops at the region-error screen before its Java runs (29 Oct 2026). The gate only opens while the helper is loaded.
 - Every current-facing doc re-checked against the code, the firmware and the 29 Oct runs: `usb-files/USB-README.txt` (region switch first, timing and gate corrections), `docs/region-bitmask-finding.md` (status "answered", helper section experimental), status headers on the v5.13–v5.15 release notes, `tests/README.md` (Python suites listed; PICT count corrected 630 → 651), and the `RegionPatch.java` header comment. All README anchors verified.

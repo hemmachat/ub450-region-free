@@ -1,54 +1,66 @@
-USB contents — region switch v5.16
+USB contents — region switch v5.17
 =================================
 
 Factory limitation: the player stores one Blu-ray region code at a time
 (1 = A, 2 = B, 4 = C). A locked disc compares the player's region register
-with its own region. Discs differ in how strictly they check: with the helper
-below set to 1, the tested locked A disc and the tested locked B disc both
-play in one session (29 Oct 2026). A disc that checks strictly for region B
-needs 2, which then locks out region A.
+with its own region. Discs differ in how strictly they check.
 
-USE THE REGION SWITCH INSTEAD. Set bd_region.txt to 1, 2 or 4, run this stick
-once, then unplug the player at the wall and remove the stick: the player
-keeps that region and needs no stick while watching. The helper jar also runs
-run.sh, so this works with either BDJ.jar on the stick.
+TWO WAYS TO USE THIS STICK
 
-PER-DISC REGION (experimental, no restart)
-------------------------------------------
-On 29 Oct 2026 a disc's menu stopped taking the remote once the helper had
-run: the top menu appeared, Home worked, but Left, Right and Play did
-nothing. The region had been set correctly. If that happens, use the region
-switch instead.
+  Region switch (simple): set bd_region.txt to 1, 2 or 4, run this stick
+  once, then unplug the player at the wall and remove the stick. The player
+  keeps that region and needs no stick while watching.
 
-With the config byte at 3 **and the helper loaded**, the player starts a disc
-of either region (with the stick out a locked disc shows the region message
-before its Java starts). BDJ.jar sets the region register about 10 seconds
-after the disc starts to the first line of psr20_value.txt:
+  Per-disc regions (both A and B, stick stays in): see below. Works since
+  30 Oct 2026; the stick stays in the player while you watch.
 
-  1 = region A; also plays The Hurt Locker (tested 29 Oct 2026)
-  2 = region B (strict B discs; The Hurt Locker also plays at 1)
-  7 = plays lax B discs only; Jigsaw (locked A) refuses it
+PER-DISC REGION (both regions, stick stays in)
+----------------------------------------------
+With the config byte at 3 the player starts a disc of either region, and
+BDJ.jar sets the region register about 10 seconds after the disc starts to
+the first line of psr20_value.txt. It then puts the player's own interface
+back, so disc menus keep working.
+
+THE ONE RULE: the first disc after a power-on must be one the player starts
+anyway — a region-free / A+B disc, or one from the player's own region
+(Chernobyl is A+B and is what we use). A disc checks the region in its first
+seconds, before the helper runs. After that first disc, every disc of either
+region plays in that session, with working menus.
+
+Values:
+  1 = region A; also plays the tested lax region B disc
+  2 = region B (strict B discs; the tested B disc also plays at 1)
   4 = region C (not tested)
-
-Use 1 unless a disc is refused. Never use a value above 7: 255 turned the
-picture off on the tested player. Missing or empty psr20_value.txt -> 1.
-The value stays set for the session, across disc swaps.
+  7 = plays lax B discs only; a strict A disc refuses it
+Never use a value above 7: 255 turned the picture off on the tested player.
 
 The first run must leave the config byte at 3 (bd_region.txt = 3), and
 bd_region.txt must stay on the stick: the helper also runs run.sh when a disc
 starts, and without that file the run falls back to writing 1.
 
-Steps to switch:
+Steps:
 1. Eject the disc.
 2. Pull the USB out of the player.
 3. On a computer, set the first line of psr20_value.txt. Save.
 4. Eject the USB from the computer, put it back in the player.
-5. Insert a disc whose Java starts fresh (a different disc, or after a power
-   cycle). The value is applied about 10 seconds after the disc's Java starts.
-Reinserting the same disc can resume playback, and then the new value is not
-applied. Keep the USB in the player while watching — and note that a disc
-menu still on screen when the value is applied can stop taking the remote
-(29 Oct 2026); use the region switch for such a disc.
+5. Unplug the player at the wall, then power on with the stick in.
+6. Wait for the home screen, then wait about 15 seconds more.
+7. Insert a disc the player starts anyway (A+B, e.g. Chernobyl). It sets the
+   region register about 10 seconds after its Java starts.
+8. Without powering off, eject it and insert the disc you want to watch. Any
+   region works in that session, and disc menus keep working.
+Keep the USB in the player while watching.
+
+Started 30 Oct 2026: a disc menu that had stopped responding to the remote
+was caused by the helper leaving its replacement interface in place. The
+helper now restores the player's own interface immediately; verified with
+Chernobyl (A+B), Jigsaw (locked A) and The Hurt Locker (locked B) in one
+session. patch_result.txt records it: "restored=" and "get20 real=1".
+
+patch_result.txt is written on every disc start: the region it read before
+and after ("get20 before=", "get20 after="), the interface search
+("cand=" lines, "passing=") and the restore ("restored="). If a disc is
+refused, send that file together with psr20_value.txt.
 
 This applies to Blu-ray only. DVDs switch differently:
 1. Set dvd_region.txt (0=free, 1=US, 2=Europe, 3=SE Asia, 4=Australia,
@@ -85,15 +97,16 @@ run.v5.7.sh         Previous release. It writes BD=7, which does nothing on a
                     region B player (7 falls back to the player's own region).
 VALIDATION-old.txt  The Oct 2026 test protocol (historical).
 
-How to run it
--------------
+How to run the region switch
+----------------------------
 1. Unplug the player's power cord (or switch the socket off). Do not use the remote.
 2. Plug the USB into the player, plug the player back in and turn it on.
-3. Wait for the home screen, then insert a Blu-ray with BD-J that the player can
-   play — its current region, or a region-free/A+B disc. Let the disc menu load
-   — if only the player's home screen appears, press Top Menu. A disc from
-   another region may show a region message and never start its Java, so the
-   script does not run from that screen.
+3. Wait for the home screen, then wait about 15 seconds more, then insert a
+   Blu-ray with BD-J that the player can currently play — its current region,
+   or a region-free/A+B disc. Let the disc menu load — if only the player's
+   home screen appears, press Top Menu. A disc from another region may show a
+   region message and never start its Java, so the script does not run from
+   that screen.
 4. Wait about 30 seconds.
 5. Unplug the player's power cord (or switch the socket off). Do not use the remote.
 6. Remove the USB, plug the player back in, turn it on, and test a US disc.
