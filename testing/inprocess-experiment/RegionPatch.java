@@ -205,6 +205,14 @@ public class RegionPatch extends Thread {
         }
     }
 
+    // A candidate is the player's adapter only when its +0x10 backend is a
+    // mapped writable pointer whose own first word is a code pointer.
+    private static boolean candidateOk(String maps, long obj, long m2, long vptr) {
+        return (obj & 3L) == 0
+                && m2 != 0 && (m2 & 3L) == 0 && inRegion(maps, m2, 'w')
+                && vptr != 0 && (vptr & 1L) == 0 && inRegion(maps, vptr, 'x');
+    }
+
     // Find the player's adapter object: scan every writable mapping (heap
     // included) for its vtable pointer and accept only a match whose +0x10
     // backend is a real writable pointer whose own first word is a code
@@ -280,7 +288,7 @@ public class RegionPatch extends Thread {
             if (m2ok) {
                 vptr = readWord(m2);
             }
-            boolean ok = m2ok && vptr != 0 && (vptr & 1L) == 0 && inRegion(maps, vptr, 'x');
+            boolean ok = candidateOk(maps, obj, m2, vptr);
             log.append("cand=").append(Long.toString(obj, 16))
                     .append(" m0c=").append(Long.toString(m1, 16))
                     .append(" m10=").append(Long.toString(m2, 16))

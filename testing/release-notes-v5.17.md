@@ -39,10 +39,10 @@ Changed
   (interactive and `--yes`); the menu freeze was the only reason to prefer
   Method 2. `tests/test_setup_usb.py` was changed first and failed until the
   default moved to Method 1.
-- `usb-files/BDJ-region-helper.jar` rebuilt: 1,305,084 bytes, SHA-256
-  `7d69c5d540800fd5093868840a952bafa21ed63dc6e3c4559278195a2fc0c09b`. Source
+- `usb-files/BDJ-region-helper.jar` rebuilt: 1,305,156 bytes, SHA-256
+  `264c55126dae11b5dcababea5e92eea040157eaa00cd362634abc78ae4432d14`. Source
   `testing/inprocess-experiment/RegionPatch.java`.
-- `test_regionpatch_value.py`: 12 checks (adds the map-permission parser, the
+- `test_regionpatch_value.py`: 13 checks (adds the map-permission parser, the
   restore path and the masked scan target).
 - README, `usb-files/USB-README.txt` and `docs/region-bitmask-finding.md`:
   Method 1 now documented as working, with the first-disc rule; the changelog

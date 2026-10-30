@@ -25,8 +25,9 @@ config and USB trees.
   (7 checks).
 - `testing/inprocess-experiment/tests/test_regionpatch_value.py` — the
   per-disc helper: the value file, the skip when the register already matches,
-  the map-permission parser, the interface restore and the masked scan target,
-  and that the shipped jar equals a fresh build (12 checks).
+  the map-permission parser, the candidate acceptance rule, the interface
+  restore and the masked scan target, and that the shipped jar equals a fresh
+  build (13 checks).
 - `testing/inprocess-experiment/experiments/restore/run_emu.sh` — the ARM
   stubs from `stubs.s`, run under `qemu-system-arm` against a synthetic memory
   image (12 checks: scan, skip, read-word, setgpr, bounds). Needs qemu; it is

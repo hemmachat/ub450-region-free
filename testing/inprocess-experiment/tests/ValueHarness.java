@@ -12,6 +12,17 @@ public class ValueHarness {
             System.out.println(((Boolean) r).booleanValue() ? 1 : 0);
             return;
         }
+        if ("candok".equals(a[0])) {
+            java.lang.reflect.Method m = c.getDeclaredMethod("candidateOk",
+                    new Class[] {String.class, long.class, long.class, long.class});
+            m.setAccessible(true);
+            Object r = m.invoke(null, new Object[] {a[1],
+                    Long.valueOf(Long.parseLong(a[2], 16)),
+                    Long.valueOf(Long.parseLong(a[3], 16)),
+                    Long.valueOf(Long.parseLong(a[4], 16))});
+            System.out.println(((Boolean) r).booleanValue() ? 1 : 0);
+            return;
+        }
         if ("inregion".equals(a[0])) {
             java.lang.reflect.Method m = c.getDeclaredMethod("inRegion",
                     new Class[] {String.class, long.class, char.class});

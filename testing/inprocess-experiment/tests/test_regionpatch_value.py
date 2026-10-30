@@ -219,6 +219,33 @@ def test_scan_target_is_masked():
     assert "0xC92B20L ^ SCAN_MASK" in src, "scan target is not stored XORed"
 
 
+
+MAPS = ("00010000-00020000 r-xp 00000000 1f:10 1 /bin/bdpprog\n"
+        "00020000-00040000 rw-p 00000000 00:00 0\n")
+
+
+def run_candok(obj, m2, vptr):
+    work = tempfile.mkdtemp(prefix="rpcand_")
+    h = os.path.join(HERE, "ValueHarness.java")
+    subprocess.run(["javac", "--release", "8", "-cp", CLASSES, "-d", work, SRC, h],
+                   check=True, capture_output=True)
+    q = subprocess.run(["java", "-cp", work + os.pathsep + CLASSES, "ValueHarness",
+                        "candok", MAPS, "%x" % obj, "%x" % m2, "%x" % vptr],
+                       capture_output=True, text=True)
+    assert q.returncode == 0, "harness failed: " + q.stderr[-300:]
+    return int(q.stdout.strip())
+
+
+def test_candidate_rules():
+    assert run_candok(0x25000, 0x30000, 0x15000) == 1, "valid candidate rejected"
+    assert run_candok(0x25002, 0x30000, 0x15000) == 0, "unaligned object accepted"
+    assert run_candok(0x25000, 0, 0x15000) == 0, "null backend accepted"
+    assert run_candok(0x25000, 0x15000, 0x15000) == 0, "read-only backend accepted"
+    assert run_candok(0x25000, 0x30000, 0) == 0, "null vtable accepted"
+    assert run_candok(0x25000, 0x30000, 0x15001) == 0, "odd vtable accepted"
+    assert run_candok(0x25000, 0x30000, 0x30000) == 0, "non-executable vtable accepted"
+
+
 def main():
     check("RegionPatch compiles for this CVM", test_compiles)
     check("RegionPatch reads the value file, defaulting safely",
@@ -233,6 +260,7 @@ def main():
     check("inRegion reads the map permissions", test_inregion_reads_permissions)
     check("the helper restores the player's interface", test_restores_the_player_interface)
     check("the scan target is masked", test_scan_target_is_masked)
+    check("the candidate rule accepts only the real adapter", test_candidate_rules)
     check("shipped jar matches a fresh build of the source", test_shipped_jar_matches_source)
     check("shipped helper calls static RegionPatch.go", test_shipped_helper_calls_static_go)
     print("\n%d/%d passed" % (PASS, PASS + FAIL))
