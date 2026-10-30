@@ -4,26 +4,25 @@ Play Blu-ray and DVD discs from other regions on a DP-UB450, DP-UB150 or
 similar MediaTek-based player. No soldering, no permanent changes, fully
 reversible.
 
-> **Use Method 2.** It sets the player to one region at a time, and needs no
-> USB while watching.
+> **Method 2 (recommended)** sets the player to one region at a time and needs
+> no USB while watching.
 >
-> **Method 1 (the per-disc helper) works since 30 Oct 2026.** It sets the
-> region register, then puts the player's own interface back, so disc menus
-> keep working. Verified on the player: Chernobyl (A+B), Jigsaw (locked A)
-> and The Hurt Locker (locked B) all played with working menus in one
-> session. One rule: **the first disc after a boot must be one the player
-> starts anyway** — an A+B disc, or any disc from the player's own region
-> (locked is fine). A disc from the other region is refused by its own check
-> before the helper runs. The byte `3` it relies on does not open the
-> player's gate when the stick is out. Discs differ in how strictly they
-> check; `7` is not "all regions". True all-region firmware is not provided
-> by this project.
+> **Method 1 (the per-disc helper) works since 30 Oct 2026:** with the USB in,
+> it plays both regions in one session with working menus. Verified on the
+> player: Chernobyl (A+B), Jigsaw (locked A) and The Hurt Locker (locked B)
+> all played in one session. One rule: **the first disc after a boot must be
+> one the player starts and that reaches its menu** — an A+B disc, or any disc
+> from the player's own region (locked is fine). A disc from the other region
+> is refused by its own check before the helper runs. The byte `3` it relies
+> on does not open the player's gate when the stick is out. Discs differ in
+> how strictly they check; `7` is not "all regions". True all-region firmware
+> is not provided by this project.
 
 There are two ways to use it:
 
 | Method | What it does | USB while watching |
 |---|---|---|
-| **[Method 1 — play both regions](#method-1--play-both-regions)** | one value (`1`) plays the tested locked A and B discs; put a playable disc in first | stays in the player |
+| **[Method 1 — play both regions](#method-1--play-both-regions)** | one value (`1`) plays the tested locked A and B discs; start with a disc the player can play (A+B or its own region) | stays in the player |
 | **[Method 2 — region switcher](#method-2--region-switcher-no-stick-while-watching)** (recommended) | sets the player to one region (`1`, `2` or `4`) at a time | only while the tool runs |
 
 Both start by [downloading the repository](#common-setup); building `BDJ.jar` is only needed for Method 2.
@@ -176,7 +175,8 @@ that session plays.
 1. Unplug the player at the wall, insert the stick, power on. Press **Return**
    if the USB media menu appears.
 2. **Wait for the home screen, then about 15 more seconds.**
-3. Insert a disc the player starts anyway — A+B, or any disc of its own region, locked is fine — and let it load.
+3. Insert a disc the player starts anyway — A+B, or any disc of its own
+   region (locked is fine) — and let it load.
 4. Without powering off, eject it and insert the disc you want to watch — of
    either region. Disc menus keep working.
 
