@@ -124,7 +124,7 @@ This method does not need the `BDJ.jar` you would build: it uses the helper jar 
 | File on the stick | Value |
 |---|---|
 | `BDJ_DEBUG` | empty file (from `usb-files/`) |
-| `BDJ.jar` | the helper: `usb-files/BDJ-region-helper.jar` |
+| `BDJ.jar` | the helper: copy `usb-files/BDJ-region-helper.jar` **as `BDJ.jar`** (the player only loads that name) |
 | `run.sh` | from `usb-files/` |
 | `bd_region.txt` | **edit line 1** from the shipped `1` to `3` |
 | `psr20_value.txt` | ships with `1` (from `usb-files/`); leave it |
@@ -148,8 +148,11 @@ The player must store the `3` once. With the stick in the player:
 1. Unplug the player at the wall, insert the stick, power on. If the player
    shows its USB media menu ("please select a function"), press **Return** to
    leave it.
-2. Insert any Blu-ray with BD-J that the player can play and wait ~30 s.
-3. Unplug the player, power on once more — that applies the `3`.
+2. **Wait for the home screen, then about 15 more seconds.** If the disc goes
+   in sooner the player can start it before the stick is ready, the helper
+   does not load, and nothing is written.
+3. Insert any Blu-ray with BDJ that the player can play and wait ~30 s.
+4. Unplug the player, power on once more — that applies the `3`.
 
 To see what the run did, plug the stick into a computer afterwards:
 `region_log.txt` should say `Config write VERIFIED: … BD=0x03`.
@@ -161,12 +164,21 @@ when the helper is loaded (measured 29 Oct 2026).
 
 ### Play
 
-Keep the stick in the player and insert any disc. The helper applies the
-value about 10 seconds after the disc's Java starts.
+Keep the stick in the player. **The first disc after a power-on must be one
+the player starts anyway** — an A+B disc (Chernobyl) or one from the player's
+own region. It sets the register about 10 seconds after its Java starts, and
+every disc after it in that session plays.
 
-Tested on the Australian UB450: Chernobyl (A+B), Jigsaw (locked A) and
-The Hurt Locker (locked B) all played in one session with working menus
-(30 Oct 2026).
+1. Unplug the player at the wall, insert the stick, power on. Press **Return**
+   if the USB media menu appears.
+2. **Wait for the home screen, then about 15 more seconds.**
+3. Insert the playable disc (A+B or the player's own region) and let it load.
+4. Without powering off, eject it and insert the disc you want to watch — of
+   either region. Disc menus keep working.
+
+Tested on the Australian UB450 (30 Oct 2026): Chernobyl (A+B), Jigsaw
+(locked A) and The Hurt Locker (locked B) all played in one session with
+working menus, from one patch.
 
 **The menu freeze, fixed (30 Oct 2026).** Until 30 Oct the helper replaced
 the player's interface object and left it replaced; that object has none of

@@ -157,14 +157,17 @@ def main():
     if method == "1":
         print("  1. Unplug the player, insert the stick, power on. If the USB media menu")
         print("     appears, press Return.")
-        print("  2. Insert a playable Blu-ray with BD-J, wait ~30 s (first run only).")
-        print("  3. Unplug the player, power on once more, then play any disc.")
+        print("  2. Wait for the home screen plus ~15 s, then insert a playable Blu-ray")
+        print("     with BD-J and wait ~30 s (first run only).")
+        print("  3. Unplug the player, power on once more.")
         print("  Keep the stick in the player while watching.")
-        print("  Experimental: a disc's menu can stop taking the remote after the helper")
-        print("  runs. Use --method 2 for a disc whose menu you need.")
+        print("  Insert a disc the player starts anyway (A+B, e.g. Chernobyl) first:")
+        print("  it sets the region register, then every disc in that session plays.")
+        print("  Disc menus keep working; the helper restores the player interface.")
     else:
         print("  1. Unplug the player, insert the stick, power on.")
-        print("  2. Insert a playable Blu-ray with BD-J, wait ~30 s.")
+        print("  2. Wait for the home screen plus ~15 s, then insert a playable Blu-ray")
+        print("     with BD-J and wait ~30 s.")
         print("  3. Unplug the player, remove the stick, power on and play that region.")
     return 0
 
