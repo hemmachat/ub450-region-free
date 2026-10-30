@@ -28,11 +28,11 @@ Why it broke, and how it was proven
 
 Timing limit (unchanged, now documented)
 - A freshly inserted disc checks the region in its first seconds, before the
-  helper runs (~10 s after the disc's Java starts). The first disc after a boot
-  must therefore be one the player starts anyway (A+B, or any disc of its own
-  region — locked is fine);
-  every disc after it plays in that session. A fresh locked disc at byte `3`
-  shows the region message even with a 10 s or 90 s patch.
+  helper runs (~10 s after the disc's Java starts). The first disc after a
+  boot must therefore be one the player starts and that reaches its menu — an
+  A+B disc, or any disc of its own region (locked is fine). Every disc after
+  it plays in that session. A fresh locked disc from the other region at byte
+  `3` shows the region message even with a 10 s or 90 s patch.
 
 Changed
 - **Method 1 is now the recommended method**, and `make-usb.py` defaults to it
@@ -43,7 +43,7 @@ Changed
   `264c55126dae11b5dcababea5e92eea040157eaa00cd362634abc78ae4432d14`. Source
   `testing/inprocess-experiment/RegionPatch.java`.
 - `test_regionpatch_value.py`: 13 checks (adds the map-permission parser, the
-  restore path and the masked scan target).
+  candidate acceptance rule, the restore path and the masked scan target).
 - README, `usb-files/USB-README.txt` and `docs/region-bitmask-finding.md`:
   Method 1 now documented as working, with the first-disc rule; the changelog
   entry is v5.17.
